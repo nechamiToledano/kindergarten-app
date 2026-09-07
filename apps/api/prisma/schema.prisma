@@ -1,0 +1,189 @@
+// Kindergarten Screening & Diagnostic App — data model (HLD §9, Spec §3).
+// ESM project: Prisma Client generated to a local path, imported explicitly.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  TEACHER
+  KINDERGARTEN_ADMIN
+  NETWORK_ADMIN
+  CONTENT_EDITOR
+}
+
+enum AgeGroup {
+  AGE_3_4
+  AGE_4_5
+  AGE_5_6
+}
+
+enum Rating {
+  PRESENT
+  PARTIALLY_PRESENT
+  ABSENT
+}
+
+enum GameType {
+  BINARY_IMAGE_CHOICE
+  MULTI_IMAGE_CHOICE
+  HOTSPOT_IMAGE
+  DRAG_MATCH
+  MANUAL_OBSERVATION
+}
+
+model Network {
+  id            String         @id @default(uuid())
+  name          String
+  kindergartens Kindergarten[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  deletedAt     DateTime?
+}
+
+model Kindergarten {
+  id        String    @id @default(uuid())
+  name      String
+  networkId String?
+  network   Network?  @relation(fields: [networkId], references: [id])
+  users     User[]
+  children  Child[]
+  sessions  Session[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([networkId])
+}
+
+model User {
+  id             String       @id @default(uuid())
+  kindergartenId String?
+  kindergarten   Kindergarten? @relation(fields: [kindergartenId], references: [id])
+  email          String       @unique
+  displayName    String
+  passwordHash   String
+  role           Role
+  refreshTokenHash String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  deletedAt      DateTime?
+
+  @@index([kindergartenId])
+}
+
+model Child {
+  id             String       @id @default(uuid())
+  kindergartenId String
+  kindergarten   Kindergarten @relation(fields: [kindergartenId], references: [id])
+  displayName    String
+  birthDate      DateTime     @db.Date
+  sessions       Session[]
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  deletedAt      DateTime?
+
+  @@index([kindergartenId])
+}
+
+model AgeGroupDomain {
+  id         String      @id @default(uuid())
+  ageGroup   AgeGroup
+  name       String
+  orderIndex Int         @default(0)
+  subdomains Subdomain[]
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  deletedAt  DateTime?
+
+  @@index([ageGroup])
+}
+
+model Subdomain {
+  id                 String             @id @default(uuid())
+  domainId           String
+  domain             AgeGroupDomain     @relation(fields: [domainId], references: [id])
+  name               String
+  orderIndex         Int                @default(0)
+  teacherInstruction String
+  childInstruction   String
+  gameType           GameType
+  gameConfig         Json
+  versions           SubdomainVersion[]
+  results            SubdomainResult[]
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  deletedAt          DateTime?
+
+  @@index([domainId])
+}
+
+// Immutable snapshot a result is measured under (§9.3).
+model SubdomainVersion {
+  id          String            @id @default(uuid())
+  subdomainId String
+  subdomain   Subdomain         @relation(fields: [subdomainId], references: [id])
+  version     Int
+  gameType    GameType
+  gameConfig  Json
+  results     SubdomainResult[]
+  createdAt   DateTime          @default(now())
+
+  @@unique([subdomainId, version])
+}
+
+model Session {
+  id             String            @id @default(uuid())
+  childId        String
+  child          Child             @relation(fields: [childId], references: [id])
+  kindergartenId String
+  kindergarten   Kindergarten      @relation(fields: [kindergartenId], references: [id])
+  startedAt      DateTime          @default(now())
+  completedAt    DateTime?
+  ageGroupAtTime AgeGroup
+  results        SubdomainResult[]
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  deletedAt      DateTime?
+
+  @@index([kindergartenId])
+  @@index([childId])
+}
+
+model SubdomainResult {
+  id                 String           @id @default(uuid())
+  // Client-generated idempotency key from the outbox (§11.5).
+  clientId           String           @unique
+  sessionId          String
+  session            Session          @relation(fields: [sessionId], references: [id])
+  subdomainId        String
+  subdomain          Subdomain        @relation(fields: [subdomainId], references: [id])
+  subdomainVersionId String
+  subdomainVersion   SubdomainVersion @relation(fields: [subdomainVersionId], references: [id])
+  attemptsCount      Int
+  rating             Rating
+  teacherNote        String?
+  rawAnswers         Json
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  @@index([sessionId])
+  @@index([subdomainId])
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  actorId   String?
+  action    String
+  entity    String
+  entityId  String?
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  @@index([entity, entityId])
+}
