@@ -25,12 +25,17 @@ export class ChildrenService {
     };
   }
 
-  async list(principal: Principal) {
+  /** M7 §3.2 — free-text name search plus an optional current-age-group filter. */
+  async list(principal: Principal, search?: string, ageGroup?: string) {
     const rows = await this.db(principal).child.findMany({
-      where: { deletedAt: null },
+      where: {
+        deletedAt: null,
+        ...(search && { displayName: { contains: search, mode: 'insensitive' } }),
+      },
       orderBy: { displayName: 'asc' },
     });
-    return rows.map((c) => this.decorate(c));
+    const decorated = rows.map((c) => this.decorate(c));
+    return ageGroup ? decorated.filter((c) => c.currentAgeGroup === ageGroup) : decorated;
   }
 
   async get(principal: Principal, id: string) {
@@ -45,6 +50,7 @@ export class ChildrenService {
         kindergartenId: requireTenant(principal),
         displayName: input.displayName,
         birthDate: new Date(input.birthDate),
+        photoUrl: input.photoUrl ?? null,
       },
     });
     await this.audit.record(principal.sub, 'child.create', 'Child', child.id);
@@ -58,6 +64,7 @@ export class ChildrenService {
       data: {
         ...(input.displayName !== undefined && { displayName: input.displayName }),
         ...(input.birthDate !== undefined && { birthDate: new Date(input.birthDate) }),
+        ...(input.photoUrl !== undefined && { photoUrl: input.photoUrl }),
       },
     });
     await this.audit.record(principal.sub, 'child.update', 'Child', id);

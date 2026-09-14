@@ -29,6 +29,7 @@ export class SessionsService {
         childId: child.id,
         startedAt: this.clock.now(),
         ageGroupAtTime: ageGroupOf(child.birthDate, this.clock.now()),
+        mode: input.mode ?? 'ASSESSMENT',
       },
     });
     await this.audit.record(principal.sub, 'session.create', 'Session', session.id);

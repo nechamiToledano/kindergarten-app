@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import {
   CreateChildSchema,
   UpdateChildSchema,
@@ -16,8 +16,12 @@ export class ChildrenController {
   constructor(private readonly children: ChildrenService) {}
 
   @Get()
-  list(@CurrentUser() principal: Principal) {
-    return this.children.list(principal);
+  list(
+    @CurrentUser() principal: Principal,
+    @Query('search') search?: string,
+    @Query('ageGroup') ageGroup?: string,
+  ) {
+    return this.children.list(principal, search, ageGroup);
   }
 
   @Get(':id')

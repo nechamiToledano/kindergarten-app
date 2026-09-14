@@ -10,6 +10,10 @@ export const GameTypeIdSchema = z.enum([
   'MULTI_IMAGE_CHOICE', // Spec §4.2
   'HOTSPOT_IMAGE', // Spec §4.3
   'DRAG_MATCH', // Spec §4.4
+  'SEQUENTIAL_TAP', // Spec §4.5 — added M5
+  'COMPARISON', // Spec §4.6 — added M5
+  'PUZZLE', // Spec §4.7 — added M5
+  'PATTERN_COPY', // Spec §4.8 — added M5
   'MANUAL_OBSERVATION',
 ]);
 export type GameTypeId = z.infer<typeof GameTypeIdSchema>;
@@ -78,6 +82,76 @@ export const DragMatchConfigSchema = z.object({
     .max(6),
 });
 
+/**
+ * Spec §4.5 — a multi-step audio instruction; the child taps coloured pads in the
+ * named order. Pad ids may repeat in the sequence (e.g. red, blue, red).
+ */
+export const SequentialTapConfigSchema = z.object({
+  gameType: z.literal('SEQUENTIAL_TAP'),
+  promptAudioUrl: z.string().min(1),
+  pads: z
+    .array(
+      z.object({
+        id: z.string().min(1),
+        color: z.string().min(1),
+        label: z.string().optional(),
+      }),
+    )
+    .min(2)
+    .max(6),
+  correctSequence: z.array(z.string().min(1)).min(2).max(8),
+});
+
+/**
+ * Spec §4.6 — two items, pick the one that satisfies the criterion. `value` is
+ * the quantity/size the scorer compares; for EQUAL the answer is the literal
+ * 'EQUAL' rather than an item id.
+ */
+export const ComparisonTypeSchema = z.enum(['BIGGER', 'SMALLER', 'MORE', 'FEWER', 'EQUAL']);
+export const ComparisonConfigSchema = z.object({
+  gameType: z.literal('COMPARISON'),
+  promptAudioUrl: z.string().min(1),
+  comparisonType: ComparisonTypeSchema,
+  items: z.tuple([
+    z.object({ id: z.string().min(1), imageUrl: z.string().min(1), value: z.number(), label: z.string().optional() }),
+    z.object({ id: z.string().min(1), imageUrl: z.string().min(1), value: z.number(), label: z.string().optional() }),
+  ]),
+});
+
+/**
+ * Spec §4.7 — assemble an image from `rows × cols` pieces. `pieceCount` (the grid
+ * total) is one of the difficulty steps the spec calls out (2/4/6/8/10). The
+ * answer is slot → piece-index; correct when every slot holds its own piece.
+ */
+const PuzzleObjectSchema = z.object({
+  gameType: z.literal('PUZZLE'),
+  promptAudioUrl: z.string().min(1),
+  imageUrl: z.string().min(1),
+  rows: z.number().int().min(1).max(5),
+  cols: z.number().int().min(1).max(5),
+  pieceCount: z.union([z.literal(2), z.literal(4), z.literal(6), z.literal(8), z.literal(10)]),
+});
+/**
+ * The cross-field rule (rows × cols === pieceCount) lives on the refined schema
+ * the plugin validates with; the discriminated union below needs the plain
+ * object, so both are exported.
+ */
+export const PuzzleConfigSchema = PuzzleObjectSchema.refine(
+  (c) => c.rows * c.cols === c.pieceCount,
+  { message: 'rows * cols must equal pieceCount', path: ['pieceCount'] },
+);
+
+/**
+ * Spec §4.8 — odd-one-out: N images share a visual property, one breaks it; tap
+ * the different one. Structurally a Multi Image Choice with a comparison intent.
+ */
+export const PatternCopyConfigSchema = z.object({
+  gameType: z.literal('PATTERN_COPY'),
+  promptAudioUrl: z.string().min(1),
+  options: z.array(ImageOptionSchema).min(3).max(6),
+  oddOneOutId: z.string().min(1),
+});
+
 export const ManualObservationConfigSchema = z.object({
   gameType: z.literal('MANUAL_OBSERVATION'),
   observationPrompt: z.string().min(1),
@@ -88,6 +162,10 @@ export const GameConfigSchema = z.discriminatedUnion('gameType', [
   MultiImageChoiceConfigSchema,
   HotspotImageConfigSchema,
   DragMatchConfigSchema,
+  SequentialTapConfigSchema,
+  ComparisonConfigSchema,
+  PuzzleObjectSchema,
+  PatternCopyConfigSchema,
   ManualObservationConfigSchema,
 ]);
 export type GameConfig = z.infer<typeof GameConfigSchema>;

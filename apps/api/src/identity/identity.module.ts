@@ -5,6 +5,8 @@ import type { Env } from '../config/env.js';
 import { AuthController } from './auth.controller.js';
 import { AuthService } from './auth.service.js';
 import { UserRepository } from './user.repository.js';
+import { UsersController } from './users.controller.js';
+import { UsersService } from './users.service.js';
 
 @Global()
 @Module({
@@ -17,8 +19,8 @@ import { UserRepository } from './user.repository.js';
       }),
     }),
   ],
-  controllers: [AuthController],
-  providers: [AuthService, UserRepository],
+  controllers: [AuthController, UsersController],
+  providers: [AuthService, UserRepository, UsersService],
   exports: [AuthService, UserRepository, JwtModule],
 })
 export class IdentityModule {}

@@ -14,6 +14,13 @@ export const EnvSchema = z.object({
   JWT_REFRESH_TTL: z.string().default('30d'),
   CDN_BASE_URL: z.string().default(''),
   STORAGE_DRIVER: z.enum(['static', 'r2']).default('static'),
+  // Cloudflare R2 (§14.3) — only read when STORAGE_DRIVER=r2.
+  R2_ACCOUNT_ID: z.string().default(''),
+  R2_ACCESS_KEY_ID: z.string().default(''),
+  R2_SECRET_ACCESS_KEY: z.string().default(''),
+  R2_BUCKET: z.string().default(''),
+  /** Public base URL of the bucket (custom domain or r2.dev), used to build asset URLs. */
+  R2_PUBLIC_BASE_URL: z.string().default(''),
 });
 
 export type Env = z.infer<typeof EnvSchema>;

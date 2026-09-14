@@ -23,6 +23,14 @@ export const SubdomainSchema = z.object({
 });
 export type Subdomain = z.infer<typeof SubdomainSchema>;
 
+export const CreateDomainSchema = DomainSchema.omit({ id: true }).extend({
+  orderIndex: z.number().int().min(0).default(0),
+});
+export type CreateDomain = z.infer<typeof CreateDomainSchema>;
+
+export const UpdateDomainSchema = DomainSchema.omit({ id: true, ageGroup: true }).partial();
+export type UpdateDomain = z.infer<typeof UpdateDomainSchema>;
+
 export const CreateSubdomainSchema = SubdomainSchema.omit({ id: true });
 export type CreateSubdomain = z.infer<typeof CreateSubdomainSchema>;
 

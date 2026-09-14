@@ -29,12 +29,24 @@ enum Rating {
   ABSENT
 }
 
+// M7 §3.4 — ASSESSMENT is the diagnostic flow; PRACTICE is the free-play mode.
+// Reports filter to ASSESSMENT by default so practice runs never skew statistics.
+enum SessionMode {
+  ASSESSMENT
+  PRACTICE
+}
+
 enum GameType {
   BINARY_IMAGE_CHOICE
   MULTI_IMAGE_CHOICE
   HOTSPOT_IMAGE
   DRAG_MATCH
   MANUAL_OBSERVATION
+  // Added M5 (§17) — 4.5–4.8. Appended in migration order.
+  SEQUENTIAL_TAP
+  COMPARISON
+  PUZZLE
+  PATTERN_COPY
 }
 
 model Network {
@@ -83,6 +95,8 @@ model Child {
   kindergarten   Kindergarten @relation(fields: [kindergartenId], references: [id])
   displayName    String
   birthDate      DateTime     @db.Date
+  /** M7 §3.2 — uploaded via the existing media pipeline (§14.3), optional. */
+  photoUrl       String?
   sessions       Session[]
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
@@ -146,6 +160,7 @@ model Session {
   startedAt      DateTime          @default(now())
   completedAt    DateTime?
   ageGroupAtTime AgeGroup
+  mode           SessionMode       @default(ASSESSMENT)
   results        SubdomainResult[]
   createdAt      DateTime          @default(now())
   updatedAt      DateTime          @updatedAt

@@ -2,10 +2,17 @@ import { PrismaClient } from '@prisma/client';
 import * as argon2 from 'argon2';
 import { GameConfigSchema } from '@kga/contracts';
 import { createDefaultRegistry } from '@kga/game-engine';
+import { CONTENT } from './content.js';
 
 const prisma = new PrismaClient();
 const registry = createDefaultRegistry();
 
+/**
+ * Seeds the full M5 content set (Spec §9) across all three age groups from the
+ * catalogue in `content.ts`. Media stays on placeholders (Spec §8 / HLD §18.2).
+ * Every gameConfig is re-validated against its plugin schema here, the same
+ * guardrail `content.spec.ts` runs in CI (§15).
+ */
 async function main(): Promise<void> {
   const network = await prisma.network.upsert({
     where: { id: '11111111-1111-4111-8111-111111111111' },
@@ -43,59 +50,90 @@ async function main(): Promise<void> {
     },
   });
 
-  await prisma.child.upsert({
-    where: { id: '33333333-3333-4333-8333-333333333333' },
-    update: {},
-    create: {
-      id: '33333333-3333-4333-8333-333333333333',
-      kindergartenId: kg.id,
-      displayName: 'ילד/ה דמו',
-      birthDate: new Date('2021-03-15'),
-    },
-  });
-
-  const domain = await prisma.ageGroupDomain.upsert({
-    where: { id: '44444444-4444-4444-8444-444444444444' },
-    update: {},
-    create: {
-      id: '44444444-4444-4444-8444-444444444444',
-      ageGroup: 'AGE_4_5',
-      name: 'מודעות פונולוגית',
-      orderIndex: 0,
-    },
-  });
-
-  const gameConfig = GameConfigSchema.parse({
-    gameType: 'BINARY_IMAGE_CHOICE',
-    promptAudioUrl: 'audio/demo-prompt.mp3',
-    options: [
-      { id: 'cat', imageUrl: 'images/cat.png', label: 'חתול' },
-      { id: 'dog', imageUrl: 'images/dog.png', label: 'כלב' },
-    ],
-    correctOptionId: 'cat',
-  });
-  // Content-validation guardrail (§15) also runs at seed time.
-  registry.get(gameConfig.gameType).configSchema.parse(gameConfig);
-
-  const existing = await prisma.subdomain.findFirst({ where: { domainId: domain.id } });
-  if (!existing) {
-    const subdomain = await prisma.subdomain.create({
-      data: {
-        domainId: domain.id,
-        name: 'זיהוי צליל פותח',
-        orderIndex: 0,
-        teacherInstruction: 'הראה לילד/ה את שתי התמונות ובקש/י לבחור את זו שמתחילה בצליל /ח/.',
-        childInstruction: 'איזו תמונה מתחילה בצליל חַ?',
-        gameType: gameConfig.gameType,
-        gameConfig,
+  for (const [i, spec] of [
+    { id: '33333333-3333-4333-8333-333333333333', displayName: 'נועה דמו', birthDate: '2021-03-15' },
+    { id: '33333333-3333-4333-8333-333333333334', displayName: 'איתי דמו', birthDate: '2020-11-02' },
+  ].entries()) {
+    await prisma.child.upsert({
+      where: { id: spec.id },
+      update: {},
+      create: {
+        id: spec.id,
+        kindergartenId: kg.id,
+        displayName: spec.displayName,
+        birthDate: new Date(spec.birthDate),
+        createdAt: new Date(Date.now() - i * 1000),
       },
-    });
-    await prisma.subdomainVersion.create({
-      data: { subdomainId: subdomain.id, version: 1, gameType: gameConfig.gameType, gameConfig },
     });
   }
 
-  console.log('Seed complete: teacher@demo.dev / editor@demo.dev  (password123)');
+  let domainCount = 0;
+  let subdomainCount = 0;
+
+  for (const ageGroup of CONTENT) {
+    for (const domainSpec of ageGroup.domains) {
+      const domain = await prisma.ageGroupDomain.upsert({
+        where: { id: domainSpec.id },
+        update: { name: domainSpec.name, ageGroup: ageGroup.ageGroup, orderIndex: domainSpec.orderIndex },
+        create: {
+          id: domainSpec.id,
+          ageGroup: ageGroup.ageGroup,
+          name: domainSpec.name,
+          orderIndex: domainSpec.orderIndex,
+        },
+      });
+      domainCount += 1;
+
+      for (const [index, sub] of domainSpec.subdomains.entries()) {
+        const config = GameConfigSchema.parse(sub.config);
+        // Content-validation guardrail (§15) — every seeded config parses under its plugin schema.
+        registry.get(config.gameType).configSchema.parse(config);
+
+        await prisma.subdomain.upsert({
+          where: { id: sub.id },
+          update: {
+            name: sub.name,
+            orderIndex: index,
+            teacherInstruction: sub.teacherInstruction,
+            childInstruction: sub.childInstruction,
+            gameType: config.gameType,
+            gameConfig: config,
+          },
+          create: {
+            id: sub.id,
+            domainId: domain.id,
+            name: sub.name,
+            orderIndex: index,
+            teacherInstruction: sub.teacherInstruction,
+            childInstruction: sub.childInstruction,
+            gameType: config.gameType,
+            gameConfig: config,
+          },
+        });
+        subdomainCount += 1;
+
+        const latest = await prisma.subdomainVersion.findFirst({
+          where: { subdomainId: sub.id },
+          orderBy: { version: 'desc' },
+        });
+        if (!latest || JSON.stringify(latest.gameConfig) !== JSON.stringify(config)) {
+          await prisma.subdomainVersion.create({
+            data: {
+              subdomainId: sub.id,
+              version: (latest?.version ?? 0) + 1,
+              gameType: config.gameType,
+              gameConfig: config,
+            },
+          });
+        }
+      }
+    }
+  }
+
+  console.log(
+    `Seed complete: ${domainCount} domains, ${subdomainCount} subdomains across ${CONTENT.length} age groups.\n` +
+      'Login: teacher@demo.dev / editor@demo.dev  (password123)',
+  );
 }
 
 main()

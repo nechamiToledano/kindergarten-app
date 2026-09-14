@@ -5,6 +5,7 @@ import type {
   CreateSubdomain,
   GameConfig,
   Principal,
+  UpdateDomain,
   UpdateSubdomain,
 } from '@kga/contracts';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -47,6 +48,14 @@ export class ContentService {
     });
   }
 
+  /** Immutable config snapshots for a subdomain, newest first (§9.3). */
+  listVersions(subdomainId: string) {
+    return this.prisma.subdomainVersion.findMany({
+      where: { subdomainId },
+      orderBy: { version: 'desc' },
+    });
+  }
+
   /** Resolve a subdomain plus its current version, for the play surface (§9.3). */
   async getForPlay(id: string) {
     const subdomain = await this.prisma.subdomain.findFirst({
@@ -78,6 +87,44 @@ export class ContentService {
     const domain = await this.prisma.ageGroupDomain.create({ data: input });
     await this.audit.record(principal.sub, 'domain.create', 'AgeGroupDomain', domain.id);
     return domain;
+  }
+
+  async updateDomain(principal: Principal, id: string, input: UpdateDomain) {
+    const existing = await this.prisma.ageGroupDomain.findFirst({
+      where: { id, deletedAt: null },
+    });
+    if (!existing) throw new NotFoundException('Domain not found');
+    const domain = await this.prisma.ageGroupDomain.update({
+      where: { id },
+      data: {
+        ...(input.name !== undefined && { name: input.name }),
+        ...(input.orderIndex !== undefined && { orderIndex: input.orderIndex }),
+      },
+    });
+    await this.audit.record(principal.sub, 'domain.update', 'AgeGroupDomain', id);
+    return domain;
+  }
+
+  async removeDomain(principal: Principal, id: string) {
+    const existing = await this.prisma.ageGroupDomain.findFirst({
+      where: { id, deletedAt: null },
+      include: { subdomains: { where: { deletedAt: null }, select: { id: true } } },
+    });
+    if (!existing) throw new NotFoundException('Domain not found');
+    if (existing.subdomains.length > 0) {
+      throw new BadRequestException('Delete the subdomains under this domain first');
+    }
+    await this.prisma.ageGroupDomain.update({ where: { id }, data: { deletedAt: new Date() } });
+    await this.audit.record(principal.sub, 'domain.delete', 'AgeGroupDomain', id);
+    return { id, deleted: true };
+  }
+
+  async removeSubdomain(principal: Principal, id: string) {
+    const existing = await this.prisma.subdomain.findFirst({ where: { id, deletedAt: null } });
+    if (!existing) throw new NotFoundException('Subdomain not found');
+    await this.prisma.subdomain.update({ where: { id }, data: { deletedAt: new Date() } });
+    await this.audit.record(principal.sub, 'subdomain.delete', 'Subdomain', id);
+    return { id, deleted: true };
   }
 
   async createSubdomain(principal: Principal, input: CreateSubdomain) {

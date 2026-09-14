@@ -15,6 +15,17 @@ export const CreateUserSchema = UserSchema.omit({ id: true }).extend({
 });
 export type CreateUser = z.infer<typeof CreateUserSchema>;
 
+/** Staff management (§14.4). Email is immutable; password reset is optional. */
+export const UpdateUserSchema = z
+  .object({
+    displayName: z.string().min(1).max(120),
+    role: RoleSchema,
+    kindergartenId: z.uuid().nullable(),
+    password: z.string().min(8).max(200),
+  })
+  .partial();
+export type UpdateUser = z.infer<typeof UpdateUserSchema>;
+
 export const LoginSchema = z.object({
   email: z.email(),
   password: z.string().min(1),

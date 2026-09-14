@@ -2,6 +2,15 @@ import { z } from 'zod';
 import { AgeGroupSchema, RatingSchema } from './common.js';
 import { RawAnswerSchema } from './game-config.js';
 
+/**
+ * M7 §3.4 — ASSESSMENT is the diagnostic flow (§8), unchanged. PRACTICE is the
+ * free-play mode (§3.3): any subdomain, optionally not written to reports.
+ * Every report query filters to ASSESSMENT by default so a practice run never
+ * contaminates a real screening statistic.
+ */
+export const SessionModeSchema = z.enum(['ASSESSMENT', 'PRACTICE']);
+export type SessionMode = z.infer<typeof SessionModeSchema>;
+
 export const SessionSchema = z.object({
   id: z.uuid(),
   childId: z.uuid(),
@@ -10,11 +19,13 @@ export const SessionSchema = z.object({
   completedAt: z.iso.datetime().nullable(),
   /** Snapshot — a child crosses age bands between sessions (§9.1). */
   ageGroupAtTime: AgeGroupSchema,
+  mode: SessionModeSchema,
 });
 export type Session = z.infer<typeof SessionSchema>;
 
 export const CreateSessionSchema = z.object({
   childId: z.uuid(),
+  mode: SessionModeSchema.default('ASSESSMENT'),
 });
 export type CreateSession = z.infer<typeof CreateSessionSchema>;
 

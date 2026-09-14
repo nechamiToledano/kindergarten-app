@@ -1,0 +1,360 @@
+/* Same brand ink as apps/web (kept in sync by hand — §14.5 gives the admin
+   app its own stylesheet, no packages/ui, but the two products should still
+   read as one system). Admin is teacher/staff-facing only, so it uses just
+   the navy anchor — no child-surface coral here. */
+:root {
+  --text: #5b6270;
+  --text-h: #1f2430;
+  --bg: #fdfcfa;
+  --surface: #f6f3ec;
+  --border: #e3dfd4;
+  --code-bg: #f2efe6;
+  --accent: #2b3a67;
+  --accent-bg: #e7eaf3;
+  --accent-border: #b9c1dc;
+  --danger: #b23a3a;
+
+  --display: 'Suez One', 'Segoe UI', system-ui, sans-serif;
+  --sans: 'Assistant', 'Segoe UI', system-ui, sans-serif;
+
+  font: 16px/1.55 var(--sans);
+  color-scheme: light dark;
+  color: var(--text-h);
+  background: var(--bg);
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--display);
+  font-weight: 400;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --text: #a3aab8;
+    --text-h: #f1efe9;
+    --bg: #171a22;
+    --surface: #1d212c;
+    --border: #313644;
+    --code-bg: #1f232d;
+    --accent: #93a3d6;
+    --accent-bg: #262c40;
+    --accent-border: #414d70;
+    --danger: #d1655a;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+}
+h1 {
+  font-size: 1.5rem;
+  margin: 0;
+}
+h2 {
+  font-size: 1.15rem;
+  margin: 0;
+}
+h3 {
+  font-size: 1rem;
+  margin: 0;
+}
+code {
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 0.85em;
+  background: var(--code-bg);
+  padding: 0.1em 0.4em;
+  border-radius: 4px;
+}
+p {
+  margin: 0;
+}
+
+.pad {
+  padding: 2rem;
+}
+.muted {
+  color: var(--text);
+  font-size: 0.9em;
+}
+.error-text {
+  color: var(--danger);
+  font-weight: 600;
+}
+.row {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.center-screen {
+  min-height: 100svh;
+  display: grid;
+  place-items: center;
+}
+
+.btn-primary,
+.btn-ghost {
+  font: inherit;
+  font-weight: 600;
+  border-radius: 10px;
+  padding: 0.5rem 1.1rem;
+  cursor: pointer;
+  min-height: 40px;
+}
+.btn-primary {
+  border: none;
+  background: var(--accent);
+  color: #fff;
+}
+.btn-primary:disabled {
+  background: var(--border);
+  color: var(--text);
+  cursor: default;
+}
+.btn-ghost {
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-h);
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 2rem;
+  display: grid;
+  gap: 1rem;
+}
+.login-card {
+  inline-size: min(360px, 92vw);
+}
+.login-card label {
+  display: grid;
+  gap: 0.3rem;
+  font-weight: 600;
+}
+.login-card input {
+  font: inherit;
+  padding: 0.55rem 0.7rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text-h);
+}
+
+/* shell */
+.shell-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.5rem;
+  border-block-end: 1px solid var(--border);
+}
+.shell-main {
+  padding: 1.5rem;
+  max-inline-size: 1100px;
+  margin-inline: auto;
+}
+
+/* tabs */
+.tabs {
+  display: flex;
+  gap: 0.25rem;
+  border-block-end: 1px solid var(--border);
+  margin-block-end: 1.25rem;
+}
+.tab {
+  font: inherit;
+  font-weight: 600;
+  padding: 0.55rem 1rem;
+  border: none;
+  border-block-end: 3px solid transparent;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+.tab-active {
+  color: var(--accent);
+  border-block-end-color: var(--accent);
+}
+
+/* browser two columns */
+.browser-cols {
+  display: grid;
+  grid-template-columns: 1fr 1.4fr;
+  gap: 1.5rem;
+}
+@media (max-width: 780px) {
+  .browser-cols {
+    grid-template-columns: 1fr;
+  }
+}
+.col-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-block-end: 0.75rem;
+}
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.4rem;
+}
+.list li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+}
+.list li.active {
+  border-color: var(--accent-border);
+  background: var(--accent-bg);
+}
+.list-main {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font: inherit;
+  text-align: start;
+  background: none;
+  border: none;
+  color: var(--text-h);
+  cursor: pointer;
+}
+.link {
+  font: inherit;
+  font-size: 0.85em;
+  background: none;
+  border: none;
+  color: var(--accent);
+  cursor: pointer;
+}
+.link.danger {
+  color: var(--danger);
+}
+.badge {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid var(--accent-border);
+  background: var(--accent-bg);
+  color: var(--text-h);
+}
+
+/* editor + schema form */
+.editor {
+  display: grid;
+  gap: 1.25rem;
+}
+.editor-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.editor-config-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-block-end: 0.75rem;
+}
+.sf {
+  display: grid;
+  gap: 0.9rem;
+}
+.sf-field {
+  display: grid;
+  gap: 0.3rem;
+}
+.sf-field.sf-inline {
+  grid-auto-flow: column;
+  justify-content: start;
+  align-items: center;
+  gap: 0.5rem;
+}
+.sf-label {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+.sf-hint {
+  color: var(--text);
+  font-size: 0.8rem;
+}
+.sf input,
+.sf select,
+.sf textarea,
+.raw-json {
+  font: inherit;
+  padding: 0.5rem 0.6rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text-h);
+  width: 100%;
+}
+.raw-json {
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 0.85rem;
+}
+.sf-object,
+.sf-array {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.9rem;
+  margin: 0;
+  display: grid;
+  gap: 0.75rem;
+}
+.sf-object legend,
+.sf-array legend {
+  font-weight: 700;
+  font-size: 0.85rem;
+  padding-inline: 0.4rem;
+}
+.sf-array-item {
+  display: grid;
+  gap: 0.4rem;
+  padding: 0.6rem;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+}
+.sf-remove {
+  justify-self: start;
+  min-height: 32px;
+  padding: 0.2rem 0.8rem;
+  font-size: 0.85rem;
+}
+.issues {
+  margin: 0;
+  padding: 0.75rem 1rem 0.75rem 1.5rem;
+  border: 1px solid var(--danger);
+  border-radius: 10px;
+  background: rgba(239, 68, 68, 0.08);
+  font-size: 0.85rem;
+  display: grid;
+  gap: 0.3rem;
+}
+.assets ul {
+  list-style: none;
+  margin: 0.4rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.3rem;
+  font-size: 0.85rem;
+}
+.editor-actions {
+  align-items: center;
+}

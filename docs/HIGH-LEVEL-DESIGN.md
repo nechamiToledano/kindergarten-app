@@ -314,10 +314,10 @@ export const GameConfigSchema = z.discriminatedUnion('gameType', [
   MultiImageChoiceConfig,    // Spec §4.2
   HotspotImageConfig,        // Spec §4.3
   DragMatchConfig,           // Spec §4.4
-  SequentialTapConfig,       // Spec §4.5  — later
-  ComparisonConfig,          // Spec §4.6  — later
-  PuzzleConfig,              // Spec §4.7  — later
-  PatternCopyConfig,         // Spec §4.8  — later
+  SequentialTapConfig,       // Spec §4.5  — added M5
+  ComparisonConfig,          // Spec §4.6  — added M5
+  PuzzleConfig,              // Spec §4.7  — added M5
+  PatternCopyConfig,         // Spec §4.8  — added M5
 ]);
 ```
 
@@ -338,9 +338,10 @@ layer, and the admin app's content editor — which reads `configSchema` and ada
 
 ### 7.4 MVP scope
 
-Per Spec §4's own recommendation, build **4.1, 4.2, 4.3, 4.4** first — they cover the large
-majority of subdomains across all three age groups. The remaining four are registry additions, not
-architectural work.
+Per Spec §4's own recommendation, the MVP built **4.1, 4.2, 4.3, 4.4** first — they cover the large
+majority of subdomains across all three age groups. The remaining four (**4.5–4.8**) landed at M5
+exactly as predicted: four plugins, four components, four lines in the two registry maps, one enum
+migration — no change to the session machine, the endpoints, or the data model (§17.1).
 
 ---
 
@@ -671,11 +672,11 @@ share almost no UI requirements — but they share every contract, which is the 
 
 | Admin capability | Prerequisite | Status after MVP |
 |---|---|---|
-| Content CRUD + generated editors | `configSchema` + `meta` per plugin | ✅ exists |
-| Hotspot coordinate editor | `HotspotImageConfig` schema | ✅ exists |
-| Image/audio upload | `StoragePort` R2 adapter | ⚙️ config swap |
-| User & role management | RBAC guard + roles | ✅ exists |
-| Kindergarten/network management | `kindergartenId` + `networkId` | ✅ exists |
+| Content CRUD + generated editors | `configSchema` + `meta` per plugin | ✅ built (M6) |
+| Hotspot coordinate editor | `HotspotImageConfig` schema | ✅ built (M6) |
+| Image/audio upload | `StoragePort` R2 adapter | ✅ built (M6) — `STORAGE_DRIVER=r2` |
+| User & role management | RBAC guard + roles | ✅ built (M6) |
+| Kindergarten/network management | `kindergartenId` + `networkId` | ✅ built (M6) |
 | Change accountability | `AuditLog` | ✅ exists |
 
 Nothing on that list requires changing the game engine, the session flow, or the data model.
@@ -744,12 +745,298 @@ Each milestone has one exit criterion, phrased as something you can demonstrate.
 | **M4** | **Reports** — the three views (§12) plus PDF/Excel export | A teacher opens a child's progression and the cross-child grouping report from real M3 data. |
 | **M5** | **Content expansion** — remaining age groups and domains per Spec §9; remaining game types 4.5–4.8 as registry additions | Content-validation tests pass over the full seeded content set. |
 | **M6** | **Admin application** (§14) — content CRUD, hotspot editor, media upload via R2, user management | A non-developer adds a new subdomain, with a new image, without a deployment. |
+| **M7** | **UX overhaul & product expansion** — design system in `packages/ui`, a home dashboard, richer child management (search/filter/photo), a practice ("free play") mode, and visual polish across reports and the game surface. Additive only — see [`docs/M7-UX-EXPANSION.md`](./M7-UX-EXPANSION.md). | The app has a home screen with kindergarten-wide stats, and a teacher can run an undocumented practice game without touching assessment data. |
 
 M3 is the milestone that matters most. It is the first point at which the design meets a real
 teacher and a real child, and it is deliberately placed **before** the expensive content work in M5
 — so that anything the workflow gets wrong is discovered while it is still cheap to change.
 
+### 17.1 Delivery status
+
+| # | State | Notes |
+|---|---|---|
+| M0 | ✅ done | Monorepo consolidated, Prisma + Neon linked, `VitePWA` registered, first commit made. |
+| M1 | ✅ done | `packages/contracts`, Prisma schema, CRUD + auth + RBAC + tenant scoping in `apps/api`. |
+| **M2** | ✅ **done** | See below. |
+| **M3** | ✅ **done** | See below. |
+| **M4** | ✅ **done** | See below. |
+| **M5** | ✅ **done** | See below. |
+| **M6** | ✅ **done** | Admin app: schema-generated content CRUD, hotspot editor, R2 media upload, staff & kindergarten management. See below. |
+| **M7** | 🟡 **code done** | Design system, home dashboard, richer children mgmt, practice mode, a login-screen restyle, and a sidebar/topbar app shell built (M7.1–M7.5 + M7.5.1 of docs/M7-UX-EXPANSION.md). Real illustrations/audio and a live-teacher pass on the new UI (M7.6–M7.7) remain, as designed — non-development work. See below. |
+
+**M2 — Game engine.** Delivered:
+
+- `packages/game-engine` — `GamePluginRegistry`, the five MVP plugins (§7.4 4.1–4.4 plus
+  `MANUAL_OBSERVATION` for Spec §18.1 q5), and the pure `sessionReducer` (§8). A new `ADVANCE`
+  event ticks the input-less feedback phases (`CorrectFeedback`, `Exhausted`) forward; the reducer
+  still never auto-assigns a rating.
+- `apps/web/src/games/` — one React component per plugin, keyed by the same `gameType` id, plus
+  `registry.ts` (`gameComponents` map + `engineRegistry`). Adding game type #N is a plugin, a
+  component, and one line in the map (§7.3).
+- `apps/web/src/shared/audio/AudioUnlockProvider.tsx` — unlocks `AudioContext` inside the teacher's
+  Start gesture, then `play()` is always permitted (§11.4). Placeholder prompts are synthesised
+  tones (`tone:` scheme) — Spec §8's human recordings are an M2-parallel pipeline, not a blocker.
+- `apps/web/src/shared/assets/` — `placeholder.ts` (inline-SVG images, tone audio) and
+  `AssetPreloader` / `useAssetPreload`, which fetch and decode every `plugin.assetsOf(config)` entry
+  before `Playing` (§11.4).
+- `apps/web/src/features/sessions/GamePlayer.tsx` — wires the reducer to the components: prompt
+  playback, three-attempt loop, feedback, and the manual rating screen (note field on the failure
+  branch only).
+- `apps/web/src/mock/subdomains.ts` + the `App.tsx` harness — the JSON fixture the M2 exit criterion
+  calls for; all five subdomains run end to end with no backend and no real content. `pnpm turbo
+  build` and `pnpm --filter @kga/game-engine test` are green.
+
+Not in M2 (deferred as designed): the outbox sync and real teacher shell (M3), TanStack Query
+(added in M4 when reports need caching), and any real assets.
+
+**M3 — Vertical slice.** One teacher, one child, one domain of real content, end to end into Neon.
+Delivered:
+
+- `apps/api/prisma/seed.ts` — one real domain, *מודעות פונולוגית* (phonological awareness) for
+  `AGE_4_5`, with five subdomains that between them exercise all five MVP plugin types. Pedagogical
+  copy (teacher and child instructions, correct answers) is real; media is still placeholder
+  (`tone:` audio, inline-SVG images) per §18.2 — the human-recording pipeline (§18.2) runs
+  alongside, not before.
+- `apps/web/src/shared/auth/AuthProvider.tsx` + `shared/api/client.ts` — a `fetch` wrapper with
+  access-token attach and one-shot refresh-on-401 (§13.2), and `features/auth/LoginScreen.tsx`.
+- `apps/web/src/shared/outbox/` — the §11.5 result outbox. `db.ts` is a thin hand-rolled
+  IndexedDB store (Dexie deferred — see deviations below); `OutboxProvider.tsx` owns the
+  background flush, firing on enqueue, on `online`, and on a 15 s catch-all interval. Every result
+  carries a client-generated `clientId`; `POST /sessions/sync` is idempotent on it, so an
+  over-eager flush is harmless. A brief WiFi drop mid-session cannot lose a rating already given.
+- `apps/web/src/features/children/RosterScreen.tsx` — the teacher's roster, scoped to their
+  kindergarten by the API's tenant filter (§9.2).
+- `apps/web/src/features/sessions/SessionRunner.tsx` — session orchestration over one domain:
+  create the session (snapshotting `ageGroupAtTime`), load every subdomain's play config, run each
+  through M2's `GamePlayer`, queue each `SubdomainRunResult` to the outbox against its
+  `subdomainVersionId` (§9.3), then `completeSession` (best-effort — the outbox still delivers).
+  A closing summary shows each rating and the sync state.
+- `apps/web/src/App.tsx` + `main.tsx` — rewired to the provider stack (`AuthProvider`,
+  `AudioUnlockProvider`, `OutboxProvider`) with three views switched by local state.
+
+**Deliberate deviations from §11.1**, to keep the slice's dependency surface small — all revisited
+at M4: no TanStack Query, no React Router (one linear flow, local-state view switching), no Dexie
+(raw IndexedDB), no `react-i18next` (Hebrew strings inline for now). The backend `sessions` and
+`content` endpoints M3 consumes were already built in M0/M1.
+
+`pnpm turbo build` and `pnpm --filter @kga/game-engine test` are green. **The M3 exit criterion —
+a real teacher runs a real child through a real subdomain — still needs to be exercised with an
+actual teacher before M5 (§18.2).**
+
+**M4 — Reports.** The three §12 views over real M3 data, plus export. Delivered:
+
+- `apps/api/src/reports/` — `ReportsService` now resolves human-readable labels (child name, domain
+  and subdomain names) so the client renders without N+1 lookups. Endpoints:
+  `GET /reports/children/:id/progression`, `/vs-group`, `GET /reports/subdomains/:id/patterns`, and
+  `GET /reports/subdomains` (the subdomains this tenant has results for — drives the patterns
+  picker). Every query is tenant-scoped through the session join (§9.2); a cross-tenant child id
+  404s. All three read `SubdomainResult` and its resolved version so a comparison never silently
+  spans a content change (§9.3).
+- Export runs behind `ExportPort` (§10.3) — still the MVP `JsonExportAdapter` — but the controller
+  now streams it as a real `attachment` download (`Content-Disposition`), one endpoint per view.
+  Swapping in a PDF/Excel adapter, or a queue, is unchanged at the call site.
+- `apps/api/test/reports.e2e-spec.ts` — the §15 explicit tenant-isolation test for the report
+  endpoints: kindergarten A's patterns and progression never surface kindergarten B's children,
+  even for a subdomain both kindergartens have results in.
+- `packages/contracts/src/reports.ts` — schemas extended with the resolved names and a
+  `ReportSubdomain` list type; `ChildProgression` / `ChildVsGroup` / `CrossChildPattern` gained
+  `childName` / `subdomainName` / child `{id, displayName}` entries.
+- `apps/web/src/features/reports/` — `ReportsScreen` (tab switch + child picker), `ProgressionReport`
+  (Recharts step line, rating on a 0–2 ordinal axis with Hebrew tick labels), `VsGroupReport`
+  (stacked cohort-distribution bars with the child's own rating called out), `PatternsReport`
+  (subdomain picker → three strength columns). `shared.tsx` holds the rating scale, palette,
+  `ExportButtons`, and a small `useAsync` fetch helper. `shared/api/client.ts` gained `apiBlob` for
+  authenticated file downloads (same one-shot refresh as `api`).
+- `App.tsx` / `RosterScreen.tsx` — a "דוחות" button on the roster header opens the reports view.
+  `recharts` added to `apps/web` (the one §11.1 dependency M4 actually needs).
+
+**Deviations still standing** (from the M3 list, revisited here as promised): TanStack Query and
+React Router remain deferred — the reports screens are read-only and low-traffic, and the linear
+local-state flow still holds; both land with the admin app (M6) when mutations, cache sharing, and
+deep links pay for themselves. `react-i18next` likewise still deferred.
+
+`pnpm turbo build`, `lint`, `typecheck`, and the `game-engine` / `contracts` unit tests are green.
+The reports e2e (like the M1 tenant-isolation e2e) needs a Postgres on `DATABASE_URL` to run.
+
+**M5 — Content expansion.** Game types 4.5–4.8, plus the full seeded content set across all three
+age groups. Delivered:
+
+- **Game types 4.5–4.8** as pure registry additions (§7.3), no architectural work:
+  - `packages/contracts/src/game-config.ts` — `SequentialTapConfig` (§4.5), `ComparisonConfig`
+    (§4.6), `PuzzleConfig` (§4.7 — carries the `rows × cols === pieceCount` cross-field rule on the
+    refined schema the plugin validates with; the discriminated union takes the plain object),
+    `PatternCopyConfig` (§4.8, odd-one-out). Added to `GameTypeIdSchema` and the union.
+  - `packages/game-engine/src/plugins.ts` — `sequentialTapPlugin`, `comparisonPlugin`,
+    `puzzlePlugin`, `patternCopyPlugin`, each with a pure `score` and `assetsOf`. `MVP_PLUGINS` is
+    now `GAME_PLUGINS` (nine). Scorer tests added.
+  - `apps/web/src/games/{sequential-tap,comparison,puzzle,pattern-copy}/` — one child-surface
+    component each (tap-to-sequence pads; two items + "שווה"; tap-to-place puzzle with sliced-image
+    pieces; odd-one-out grid), wired into `gameComponents` — four lines.
+  - `apps/api/prisma/schema.prisma` — `GameType` enum gains the four values;
+    `migrations/20260908120000_m5_game_types` is the `ALTER TYPE … ADD VALUE` migration. The `Json`
+    `gameConfig` column is unchanged — new game types need no schema change (§7.2).
+- **Content** — `apps/api/prisma/content.ts` is the full catalogue (Spec §9): `AGE_3_4`, `AGE_4_5`
+  (the M3 phonological-awareness domain kept verbatim, ids and all, so existing results stay linked),
+  and `AGE_5_6` — 11 domains, ~40 subdomains, exercising all nine game types. Real Hebrew
+  pedagogical copy (teacher and child instructions, correct answers); media still placeholder
+  (`tone:` audio, inline-SVG images) per §18.2. `seed.ts` now iterates this catalogue.
+- **Content-validation guardrail (§15)** — `apps/api/prisma/content.spec.ts`: every seeded config
+  parses under its plugin's `configSchema`, every `assetsOf` url resolves, every referenced id
+  exists within its own config, and the intended answer actually scores correct. `vitest.config.ts`
+  picks up `prisma/**/*.spec.ts`. 200 api unit tests green.
+- `apps/web/src/features/sessions/SessionRunner.tsx` — the M3 "first domain only" shortcut is
+  replaced by a **domain picker**: the teacher chooses which of the age group's domains to run.
+
+**Deviations still standing:** TanStack Query, React Router, `react-i18next`, Dexie — all still
+deferred to M6 as in M3/M4; nothing in M5 changed the case for them. The M5 web components use
+tap-to-place rather than HTML drag (consistent with the M2 `DragMatch` decision — more reliable on a
+shared iPad).
+
+`pnpm turbo build lint typecheck test` is green (14 tasks). The e2e suites still need a Postgres on
+`DATABASE_URL`; `prisma migrate deploy` / `prisma db seed` apply the M5 migration and content.
+
 ---
+
+**M6 — Admin application.** `apps/admin` — its own Vite + React 19
+app (§14.5), sharing `packages/contracts` and `packages/game-engine`, no
+`packages/ui` (a desktop authoring tool and a child iPad surface share no UI).
+Delivered:
+
+- **Scaffold** — `apps/admin/` with the standard tsconfig project-reference split,
+  `@vitejs/plugin-react`, a `/api` dev proxy on port 5174, and `oxlint` config
+  mirroring `apps/web`. No PWA plugin. `pnpm-workspace.yaml` picks it up via
+  `apps/*` — no workspace change needed.
+- **Auth** — `shared/api/client.ts` (the same thin fetch wrapper + one-shot
+  refresh as `apps/web`, separate `kga.admin.*` token keys) and
+  `shared/auth/AuthProvider.tsx`, which **rejects any non-`CONTENT_EDITOR`
+  login** (§13.1 — content authoring has no child-data access, and the converse:
+  a teacher account cannot enter the admin app).
+- **Schema-generated content editor (§14.1)** — the highest-leverage piece.
+  `features/content/SchemaForm.tsx` converts a game plugin's `configSchema` to
+  JSON Schema (`z.toJSONSchema`, Zod v4) and renders a form recursively from it —
+  objects, arrays (add/remove), tuples, enums, literals, numbers, strings,
+  booleans — with `plugin.meta.hints` shown inline. `SubdomainEditor.tsx` wires
+  the generated form to the subdomain metadata fields, live-validates the whole
+  config against the real `plugin.configSchema` on every keystroke (issue list +
+  `assetsOf` preview), and offers a raw-JSON toggle as an escape hatch. A new
+  game type becomes fully editable here the moment its plugin is registered —
+  **zero admin-side code**.
+- `features/content/ContentBrowser.tsx` — age-group tabs → domains → subdomains,
+  with create / rename / soft-delete for domains and create / edit / soft-delete
+  for subdomains.
+- **API surface** — `content` module gained `PATCH /content/domains/:id`,
+  `DELETE /content/domains/:id` (refuses while subdomains remain),
+  `DELETE /content/subdomains/:id`, and `GET /content/subdomains/:id/versions`,
+  all `CONTENT_EDITOR`-gated and audit-logged. `CreateDomainSchema` /
+  `UpdateDomainSchema` moved into `packages/contracts`. Subdomain create/edit and
+  the `SubdomainVersion` snapshot-on-config-change (§9.3) were already built in
+  M1.
+
+- **Hotspot coordinate editor (§14.2)** — `features/content/HotspotEditor.tsx`.
+  Drag a rectangle over the image to add a touch region; click one to select and
+  fine-tune `x/y/width/height` (numeric, normalised 0..1); mark which regions are
+  correct. It emits exactly `HotspotImageConfig` — the same contract the plugin
+  `score` hit-tests and `HotspotImageConfigSchema` validates — so it plugs into
+  `SubdomainEditor` in place of the generic `SchemaForm` for `HOTSPOT_IMAGE`,
+  with the live issue list, `assetsOf` preview and raw-JSON escape hatch
+  unchanged. Pure frontend, no new contract.
+- **Media upload (§14.3)** — `StoragePort` now resolves through a factory
+  (`storageFactory` in `media.module.ts`): `STORAGE_DRIVER=static` keeps
+  `StaticAssetStorage`; `STORAGE_DRIVER=r2` returns `R2Storage`
+  (`media/r2.storage.ts`) — a hand-rolled SigV4 `PUT` against R2's S3 API, zero
+  new dependencies, consistent with the codebase's minimalism. `POST
+  /media/upload` (`CONTENT_EDITOR`, audit-logged, 5 MB, image/audio allowlist)
+  stores the file and returns its URL; the admin's `HotspotEditor` (and any
+  future config field) uploads through it and drops the URL straight into the
+  config. The call site never sees which driver is active (§3.3).
+- **Staff & kindergarten management (§14.4)** — `identity/users.controller.ts` +
+  `users.service.ts`: `GET/POST /users`, `PATCH /users/:id`, `DELETE /users/:id`
+  (soft), `KINDERGARTEN_ADMIN` / `NETWORK_ADMIN`-gated and scoped — a
+  kindergarten admin manages their own gan's staff, a network admin the whole
+  network; neither can grant a role above their own or provision a
+  `CONTENT_EDITOR` (cross-tenant, out of band). Kindergarten CRUD was already in
+  `tenancy` from M1. `apps/admin` now admits those two roles at the front door
+  (`AuthProvider`) alongside `CONTENT_EDITOR`, and `App.tsx` shows a **content**
+  or **staff** surface (or a tab switch when an account somehow holds both) —
+  `features/staff/StaffBrowser.tsx` is CRUD over users and kindergartens with
+  role and gan reassignment and password reset. `UpdateUserSchema` added to
+  `packages/contracts`.
+
+Still deferred: React Router (the admin surface is two flat screens),
+`react-i18next` (Hebrew inline). The R2 adapter builds and typechecks but is
+unverified against a live bucket — the same placeholder-until-real posture as
+the media pipeline (§18.2).
+
+`pnpm turbo run build typecheck lint test` is green (19 tasks); 200 API unit
+tests pass. The e2e suites still need a Postgres on `DATABASE_URL`. The admin app runs against the existing seeded `editor@demo.dev`
+account (content) and any `KINDERGARTEN_ADMIN` / `NETWORK_ADMIN` account (staff).
+
+**M7 — UX expansion (design + product additions per docs/M7-UX-EXPANSION.md).**
+M7.1–M7.5 are implemented and green; M7.6 (real illustrations/narration) and
+M7.7 (a live-teacher pass on the new screens) are non-development work, as the
+plan always scoped them. Delivered:
+
+- **M7.1 — design tokens + `packages/ui` (§2).** `apps/web/src/styles/app.css`
+  gained the M7 token block (`--accent-2/3`, gradients, `--success/warning/danger`,
+  radii, shadows, motion durations/eases) additively — nothing existing was
+  renamed. `packages/ui` gained ten framework-free components (`PageHeader`,
+  `StatCard`, `Avatar`, `ProgressRing`, `EmptyState`, `SearchInput`,
+  `FilterChips`, `Toast`, `ConfettiBurst`, `MascotBubble`); each is markup +
+  behaviour only, styled by the class names the consuming app defines (§2.4's
+  own design), so `apps/admin` gets the same look by reusing the same classes.
+- **M7.2 — Home.** `GET /reports/kindergarten/summary` (`ReportsService`) is a
+  concentration of existing queries — child count, this-week session count,
+  percent of the roster diagnosed this month, and the month's most-challenging
+  subdomain by non-`PRESENT` rating count — plus the five most recent sessions.
+  `apps/web/src/features/home/HomeScreen.tsx` is now the landing screen after
+  login (`App.tsx`), with the `StatCard` row, four gradient quick-action cards,
+  and a recent-activity list.
+- **M7.3 — Children.** `Child.photoUrl` (nullable, Prisma migration
+  `20260909090000_m7_practice_and_photo`) plus `GET /children?search=&ageGroup=`
+  on top of the existing tenant-scoped list. `RosterScreen` gained `SearchInput`,
+  age-band `FilterChips`, an `Avatar` per row, `ChildDialog` (add/edit with a
+  live-computed age group and a photo upload through the *same* `POST
+  /media/upload` M6 built — now also `TEACHER`/`KINDERGARTEN_ADMIN`-gated, not
+  only `CONTENT_EDITOR`), and a soft-delete confirm dialog with a `Toast` on save.
+- **M7.4 — Practice / free play.** `SessionMode` (`ASSESSMENT` default |
+  `PRACTICE`) on `Session`, same migration. Every §12 report query and the
+  patterns subdomain-picker now filter to `mode: ASSESSMENT`, so practice never
+  skews a real screening statistic. `apps/web/src/features/practice/PracticeScreen.tsx`
+  reuses M2's `GamePlayer` directly — no new game surface — with a domain/
+  subdomain picker spanning *all* age groups (unlike the assessment flow, which
+  stays scoped to the child's own age group) and a "save result" toggle
+  (default off, requires a child to be selected); saved runs create a
+  `PRACTICE` session and queue through the same outbox (§11.5) as an assessment.
+- **M7.5 — visual polish.** `GamePlayer`'s correct/wrong feedback phases now
+  carry the `.feedback` classes plus a `ConfettiBurst` and a CSS `shake`; the
+  patterns report's three columns (`ReportsScreen` → `PatternsReport`) gained
+  icons and a soft gradient wash from the `--success/warning/danger` tokens —
+  no logic changed in either.
+- **Not built (by design, §5 of the M7 doc):** M7.6 real illustrations and
+  human narration, and M7.7 a validation pass with an actual teacher on the new
+  UI — both are content/validation work, not code, exactly as scoped.
+- **M7.5.1 — login screen and app shell (§3.7, §3.8 of the M7 doc, a
+  follow-up request).** `AppShell` and `SyncBadge` — new markup-only
+  `packages/ui` components, styled in `apps/web/src/styles/app.css` ("app
+  shell" / "login") like every other §2.4 component. `AppShell` wraps
+  **only** the three browsing/management screens (`HomeScreen`,
+  `RosterScreen`, `ReportsScreen`) in a persistent sidebar (brand mark, nav,
+  user + logout) and topbar (page title, the outbox `SyncBadge`, a "New
+  assessment" shortcut) — those three screens each dropped their own
+  duplicate `PageHeader`/back-button chrome. `SessionRunner` (an active
+  assessment) and `PracticeScreen` stay entirely outside the shell, exactly
+  as they were kept outside the view-switch before M7 — the moment a child
+  is at the iPad, no sidebar nav belongs on screen (§11.2). `LoginScreen`
+  restyled onto a new `.login-screen` (a `--gradient-soft` backdrop behind a
+  floating `.login-panel`) with no behavioural change. Still no router
+  (§11.1) — three shell views in local state remain enough at this size.
+  `pnpm turbo run build typecheck lint` is green (16/16 tasks) across all
+  three apps and both shared packages.
+
+`pnpm turbo run build typecheck lint test` is green (19 tasks); the 200 API
+unit tests plus the new content-independent reports-summary logic pass. The
+migration has not been applied against a live database from this session — run
+`prisma migrate deploy` (§16.2, an explicit reviewed step) before deploying.
 
 ## 18. Open Questions & Risks
 

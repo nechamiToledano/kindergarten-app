@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { GameConfigSchema } from './game-config.js';
+import { GameConfigSchema, PuzzleConfigSchema } from './game-config.js';
 import { SubmitResultSchema } from './session.js';
 
 describe('GameConfigSchema', () => {
@@ -18,6 +18,31 @@ describe('GameConfigSchema', () => {
 
   it('rejects an unknown game type', () => {
     expect(() => GameConfigSchema.parse({ gameType: 'NOPE' })).toThrow();
+  });
+
+  it('accepts the M5 game types (4.5–4.8)', () => {
+    for (const gameType of ['SEQUENTIAL_TAP', 'COMPARISON', 'PUZZLE', 'PATTERN_COPY'] as const) {
+      expect(GameConfigSchema.options.some((o) => o.shape.gameType.value === gameType)).toBe(true);
+    }
+  });
+});
+
+describe('PuzzleConfigSchema', () => {
+  const base = {
+    gameType: 'PUZZLE' as const,
+    promptAudioUrl: 'p.mp3',
+    imageUrl: 'img.png',
+    rows: 2,
+    cols: 3,
+    pieceCount: 6 as const,
+  };
+
+  it('accepts a grid whose rows × cols equals pieceCount', () => {
+    expect(() => PuzzleConfigSchema.parse(base)).not.toThrow();
+  });
+
+  it('rejects a grid that does not multiply out to pieceCount', () => {
+    expect(() => PuzzleConfigSchema.parse({ ...base, pieceCount: 4 })).toThrow();
   });
 });
 

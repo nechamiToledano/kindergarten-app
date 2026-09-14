@@ -30,6 +30,9 @@ export type SessionEvent =
   | { type: 'CHILD_AUDIO_FINISHED' }
   | { type: 'ANSWER'; correct: boolean; value: unknown; at: string }
   | { type: 'CONTINUE_AFTER_WRONG' }
+  // Advances a feedback phase that has no user input of its own (CorrectFeedback,
+  // Exhausted). The teacher sees the feedback; the UI ticks it forward on a timer.
+  | { type: 'ADVANCE' }
   | { type: 'RATE'; rating: Rating; teacherNote?: string | null };
 
 export function initialSessionState(): SessionState {
@@ -60,10 +63,10 @@ export function sessionReducer(state: SessionState, event: SessionEvent): Sessio
       return event.type === 'CONTINUE_AFTER_WRONG' ? { ...state, phase: 'Playing' } : state;
 
     case 'CorrectFeedback':
-      return { ...state, phase: 'RatingSuccess' };
+      return event.type === 'ADVANCE' ? { ...state, phase: 'RatingSuccess' } : state;
 
     case 'Exhausted':
-      return { ...state, phase: 'RatingFailure' };
+      return event.type === 'ADVANCE' ? { ...state, phase: 'RatingFailure' } : state;
 
     case 'RatingSuccess':
       // The teacher always rates manually — the machine never auto-assigns (§8).
