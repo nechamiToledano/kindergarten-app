@@ -93,7 +93,7 @@ export const RecentSessionSchema = z.object({
   sessionId: z.uuid(),
   childId: z.uuid(),
   childName: z.string(),
-  childPhotoUrl: z.url().nullable(),
+  childPhotoUrl: z.string().min(1).nullable(),
   startedAt: z.iso.datetime(),
   completedAt: z.iso.datetime().nullable(),
   /** Domains this sitting covered, for the activity line. */
@@ -109,7 +109,7 @@ export type RecentSession = z.infer<typeof RecentSessionSchema>;
 export const AttentionItemSchema = z.object({
   childId: z.uuid(),
   childName: z.string(),
-  photoUrl: z.url().nullable(),
+  photoUrl: z.string().min(1).nullable(),
   ageGroup: AgeGroupSchema,
   status: ChildStatusSchema,
   /** Machine-readable cause, so the UI phrases it rather than echoing prose. */
@@ -128,7 +128,7 @@ export const OpenSessionSchema = z.object({
   sessionId: z.uuid(),
   childId: z.uuid(),
   childName: z.string(),
-  childPhotoUrl: z.url().nullable(),
+  childPhotoUrl: z.string().min(1).nullable(),
   startedAt: z.iso.datetime(),
   mode: SessionModeSchema,
   doneCount: z.number().int(),
@@ -170,7 +170,7 @@ export const KindergartenSummarySchema = z.object({
     z.object({
       childId: z.uuid(),
       childName: z.string(),
-      photoUrl: z.url().nullable(),
+      photoUrl: z.string().min(1).nullable(),
       ageGroup: AgeGroupSchema,
     }),
   ),

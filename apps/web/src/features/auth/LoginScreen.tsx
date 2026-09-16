@@ -4,6 +4,15 @@ import { ApiError } from '../../shared/api/client';
 import { useAuth } from '../../shared/auth/AuthProvider';
 import './login-screen.css';
 
+function getGreeting(): string {
+  const hour = new Date().getHours();
+  if (hour < 5) return 'לילה טוב';
+  if (hour < 12) return 'בוקר טוב';
+  if (hour < 17) return 'צהריים טובים';
+  if (hour < 21) return 'ערב טוב';
+  return 'לילה טוב';
+}
+
 /**
  * Sign in.
  *
@@ -109,7 +118,7 @@ export function LoginScreen() {
           <div>
             <h1 className="font-brand text-4xl font-thin tracking-widest">תלם</h1>
             <p className="mt-1 text-sm font-light text-muted-foreground">
-              בוקר טוב! מערכת אבחון והתפתחות לגני ילדים
+              {getGreeting()}! מערכת אבחון והתפתחות לגני ילדים
             </p>
           </div>
         </div>

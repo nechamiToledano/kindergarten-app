@@ -6,8 +6,12 @@ export const ChildSchema = z.object({
   kindergartenId: z.uuid(),
   displayName: z.string().min(1).max(80),
   birthDate: z.iso.date(),
-  /** M7 §3.2 — uploaded via the existing POST /media/upload (§14.3), optional. */
-  photoUrl: z.url().nullable().default(null),
+  /**
+   * M7 §3.2 — uploaded via the existing POST /media/upload (§14.3), optional.
+   * The media proxy (§14.3) returns a site-relative path, not an absolute URL,
+   * so this only checks for a non-empty string.
+   */
+  photoUrl: z.string().min(1).nullable().default(null),
   /**
    * M10 §4 — teacher-set follow-up flag. The dashboard's attention panel unions
    * this with a computed concern rule, so a child a teacher is worried about
@@ -25,7 +29,7 @@ export const CreateChildSchema = ChildSchema.omit({
   kindergartenId: true,
   currentAgeGroup: true,
 }).extend({
-  photoUrl: z.url().nullable().optional(),
+  photoUrl: z.string().min(1).nullable().optional(),
   watch: z.boolean().optional(),
 });
 export type CreateChild = z.infer<typeof CreateChildSchema>;
