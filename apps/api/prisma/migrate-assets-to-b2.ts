@@ -7,10 +7,10 @@ import { S3CompatibleStorage } from '../src/media/s3-compatible.storage.js';
  * One-off migration (§14.3): uploads every file under `apps/web/public/assets`
  * to the configured object store, catalogues each as a `MediaAsset` (so it
  * shows up in the admin library for reuse), and rewrites every `/assets/...`
- * reference inside `Subdomain.gameConfig` / `demoConfig` to the new
- * `/api/v1/media/file/:key` URL. Historical `SubdomainVersion` snapshots are
- * left untouched — they're an immutable record of what a past result was
- * scored against, not live content.
+ * reference inside `Subdomain.gameConfig` / `demoConfig` — and every
+ * `SubdomainVersion.gameConfig` — to the new `/api/v1/media/file/:key` URL.
+ * The play surface actually serves a subdomain's latest version, not
+ * `Subdomain.gameConfig` directly, so both need rewriting.
  *
  * Defaults to a dry run (prints what it would do, touches nothing). Pass
  * `--apply` to actually upload files and write to the database.
@@ -170,6 +170,33 @@ async function main(): Promise<void> {
   }
 
   console.log(`\n${changed} subdomain(s) ${APPLY ? 'updated' : 'would be updated'}.`);
+
+  // The play surface actually serves gameConfig from a subdomain's latest
+  // SubdomainVersion (content.service.ts's getForPlay), not from
+  // Subdomain.gameConfig directly — that field is only the editable draft.
+  // Rewrite every version's URLs too, so past-version review screens and
+  // current gameplay both resolve.
+  const versions = await prisma.subdomainVersion.findMany({
+    select: { id: true, subdomainId: true, version: true, gameConfig: true },
+  });
+  let versionsChanged = 0;
+  for (const v of versions) {
+    const original = JSON.stringify(v.gameConfig);
+    const rewritten = replaceAll(original, mapping);
+    if (rewritten === original) continue;
+
+    versionsChanged++;
+    console.log(
+      `${APPLY ? 'updating' : 'would update'} version ${v.version} of subdomain ${v.subdomainId}`,
+    );
+    if (APPLY) {
+      await prisma.subdomainVersion.update({
+        where: { id: v.id },
+        data: { gameConfig: JSON.parse(rewritten) },
+      });
+    }
+  }
+  console.log(`${versionsChanged} subdomain version(s) ${APPLY ? 'updated' : 'would be updated'}.`);
   if (!APPLY) console.log('Re-run with -- --apply to actually upload files and update the database.');
 }
 
