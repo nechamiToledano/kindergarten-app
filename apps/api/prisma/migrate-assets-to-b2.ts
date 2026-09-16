@@ -20,7 +20,14 @@ import { S3CompatibleStorage } from '../src/media/s3-compatible.storage.js';
  */
 
 const ASSETS_DIR = join(import.meta.dirname, '..', '..', 'web', 'public', 'assets');
+const CONTENT_TS = join(import.meta.dirname, 'content.ts');
 const APPLY = process.argv.includes('--apply');
+
+// Only migrate files actually referenced by seeded content — apps/web/public/assets
+// also holds unreferenced drafts (e.g. a stray `audios/` folder of voice-over
+// exports with spaces/dashes in their names that this S3-compatible API's URL
+// parsing chokes on), which nothing links to and so aren't worth fighting for.
+const contentSource = readFileSync(CONTENT_TS, 'utf8');
 
 const MIME_BY_EXT: Record<string, string> = {
   '.png': 'image/png',
@@ -90,6 +97,10 @@ async function main(): Promise<void> {
       continue;
     }
     const oldPath = `/assets/${rel}`;
+    if (!contentSource.includes(oldPath)) {
+      console.warn(`  skip (not referenced by content.ts): ${rel}`);
+      continue;
+    }
     const key = `seed/${rel}`;
     const newUrl = `/api/v1/media/file/${encodeURIComponent(key)}`;
     mapping.set(oldPath, newUrl);
@@ -98,8 +109,27 @@ async function main(): Promise<void> {
       console.log(`  would upload ${oldPath} -> ${newUrl}`);
       continue;
     }
+    // Resumable: a prior run may have already uploaded this key before failing later on.
+    if (await prisma.mediaAsset.findUnique({ where: { key }, select: { id: true } })) {
+      console.log(`  already uploaded, skipping ${oldPath}`);
+      continue;
+    }
     const data = readFileSync(join(ASSETS_DIR, rel.split('/').join(sep)));
-    await storage.put(key, data, mimeType);
+
+    let lastErr: unknown;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        await storage.put(key, data, mimeType);
+        lastErr = undefined;
+        break;
+      } catch (err) {
+        lastErr = err;
+        console.warn(`  attempt ${attempt}/3 failed for ${oldPath}: ${(err as Error).message}`);
+        await new Promise((r) => setTimeout(r, 500 * attempt));
+      }
+    }
+    if (lastErr) throw lastErr;
+
     await prisma.mediaAsset.upsert({
       where: { key },
       update: {},
