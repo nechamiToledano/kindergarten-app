@@ -4,7 +4,7 @@ services:
     runtime: node
     plan: free
     region: frankfurt
-    buildCommand: pnpm install --frozen-lockfile && pnpm --filter @kga/api prisma:generate && pnpm --filter @kga/api build
+    buildCommand: pnpm install --frozen-lockfile --prod=false && pnpm --filter @kga/api prisma:generate && pnpm --filter @kga/api build
     startCommand: pnpm --filter @kga/api prisma:deploy && pnpm --filter @kga/api start:prod
     envVars:
       - key: NODE_ENV
