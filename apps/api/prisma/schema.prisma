@@ -25,6 +25,7 @@ enum AgeGroup {
 
 enum Rating {
   PRESENT
+  PRESENT_WITH_SUPPORT
   PARTIALLY_PRESENT
   ABSENT
 }
@@ -55,6 +56,9 @@ enum GameType {
   COMPARISON
   PUZZLE
   PATTERN_COPY
+  // Added M12 (§9) — spec-mismatch fixes needed two new mechanics.
+  SYLLABLE_COUNT
+  PATTERN_SEQUENCE
 }
 
 model Network {
@@ -159,6 +163,9 @@ model Subdomain {
   childInstruction   String
   gameType           GameType
   gameConfig         Json
+  /** M12 — an ungraded worked example shown before the scored trial, for
+      subdomains the spec asks to demonstrate first. Same shape as gameConfig. */
+  demoConfig         Json?
   versions           SubdomainVersion[]
   results            SubdomainResult[]
   planItems          SessionPlanItem[]
@@ -295,8 +302,8 @@ model AppSetting {
  * The asset library (M11 — real management, §14.3 extended).
  *
  * Every upload through `MediaService.upload` gets one row, storage-backend
- * agnostic (works the same for `StaticAssetStorage` and `R2Storage` — neither
- * needs a "list objects" API). Removing a row only drops it from the library
+ * agnostic (works the same for `StaticAssetStorage` and `S3CompatibleStorage`
+ * — neither needs a "list objects" API). Removing a row only drops it from the library
  * picker; a subdomain's `gameConfig` stores the URL string directly, so an
  * asset already in use is never broken by removing its catalogue entry.
  */

@@ -13,7 +13,7 @@ export const EnvSchema = z.object({
   JWT_ACCESS_TTL: z.string().default('15m'),
   JWT_REFRESH_TTL: z.string().default('30d'),
   CDN_BASE_URL: z.string().default(''),
-  STORAGE_DRIVER: z.enum(['static', 'r2']).default('static'),
+  STORAGE_DRIVER: z.enum(['static', 'r2', 'b2']).default('static'),
   // Cloudflare R2 (§14.3) — only read when STORAGE_DRIVER=r2.
   R2_ACCOUNT_ID: z.string().default(''),
   R2_ACCESS_KEY_ID: z.string().default(''),
@@ -21,6 +21,14 @@ export const EnvSchema = z.object({
   R2_BUCKET: z.string().default(''),
   /** Public base URL of the bucket (custom domain or r2.dev), used to build asset URLs. */
   R2_PUBLIC_BASE_URL: z.string().default(''),
+  // Backblaze B2 (S3-compatible API) — only read when STORAGE_DRIVER=b2.
+  B2_KEY_ID: z.string().default(''),
+  B2_APPLICATION_KEY: z.string().default(''),
+  B2_BUCKET: z.string().default(''),
+  /** The bucket's region, e.g. `us-west-004` — shown on the bucket's B2 dashboard page. */
+  B2_REGION: z.string().default(''),
+  /** Public base URL of the bucket (friendly URL or custom domain), used to build asset URLs. */
+  B2_PUBLIC_BASE_URL: z.string().default(''),
 });
 
 export type Env = z.infer<typeof EnvSchema>;

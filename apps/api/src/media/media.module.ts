@@ -24,7 +24,7 @@ import { ContentService } from '../content/content.service.js';
 import { ContentModule } from '../content/content.module.js';
 import { AuditService } from '../common/audit.service.js';
 import { CurrentUser, Public, Roles } from '../common/auth.js';
-import { R2Storage } from './r2.storage.js';
+import { S3CompatibleStorage } from './s3-compatible.storage.js';
 
 export const STORAGE_PORT = Symbol('StoragePort');
 
@@ -48,9 +48,11 @@ export class StaticAssetStorage implements StoragePort {
   }
 }
 
-/** One-line registration (§3.3, §14.3): the port resolves to R2 or static by config. */
+/** One-line registration (§3.3, §14.3): the port resolves to R2, B2, or static by config. */
 function storageFactory(config: ConfigService<Env, true>): StoragePort {
-  if (config.get('STORAGE_DRIVER', { infer: true }) === 'r2') {
+  const driver = config.get('STORAGE_DRIVER', { infer: true });
+
+  if (driver === 'r2') {
     const accountId = config.get('R2_ACCOUNT_ID', { infer: true });
     const accessKeyId = config.get('R2_ACCESS_KEY_ID', { infer: true });
     const secretAccessKey = config.get('R2_SECRET_ACCESS_KEY', { infer: true });
@@ -59,8 +61,35 @@ function storageFactory(config: ConfigService<Env, true>): StoragePort {
     if (!accountId || !accessKeyId || !secretAccessKey || !bucket || !publicBaseUrl) {
       throw new Error('STORAGE_DRIVER=r2 requires all R2_* environment variables (§14.3)');
     }
-    return new R2Storage({ accountId, accessKeyId, secretAccessKey, bucket, publicBaseUrl });
+    return new S3CompatibleStorage({
+      host: `${accountId}.r2.cloudflarestorage.com`,
+      region: 'auto',
+      accessKeyId,
+      secretAccessKey,
+      bucket,
+      publicBaseUrl,
+    });
   }
+
+  if (driver === 'b2') {
+    const accessKeyId = config.get('B2_KEY_ID', { infer: true });
+    const secretAccessKey = config.get('B2_APPLICATION_KEY', { infer: true });
+    const bucket = config.get('B2_BUCKET', { infer: true });
+    const region = config.get('B2_REGION', { infer: true });
+    const publicBaseUrl = config.get('B2_PUBLIC_BASE_URL', { infer: true });
+    if (!accessKeyId || !secretAccessKey || !bucket || !region || !publicBaseUrl) {
+      throw new Error('STORAGE_DRIVER=b2 requires all B2_* environment variables (§14.3)');
+    }
+    return new S3CompatibleStorage({
+      host: `s3.${region}.backblazeb2.com`,
+      region,
+      accessKeyId,
+      secretAccessKey,
+      bucket,
+      publicBaseUrl,
+    });
+  }
+
   return new StaticAssetStorage(config);
 }
 

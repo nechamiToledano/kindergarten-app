@@ -1,8 +1,9 @@
 import { createHash, createHmac } from 'node:crypto';
 import type { StoragePort } from './media.module.js';
 
-export interface R2Options {
-  accountId: string;
+export interface S3CompatibleOptions {
+  host: string;
+  region: string;
   accessKeyId: string;
   secretAccessKey: string;
   bucket: string;
@@ -18,18 +19,14 @@ function sha256hex(data: Buffer | string): string {
 }
 
 /**
- * Cloudflare R2 adapter (§14.3). R2 speaks the S3 API, so a single signed
- * `PUT` object is all we need — hand-rolled SigV4 keeps the dependency surface
- * at zero, consistent with the rest of the codebase. Registered in place of
- * {@link StaticAssetStorage} by configuration alone (`STORAGE_DRIVER=r2`); no
- * call site changes (§3.3).
+ * Adapter for any S3-compatible object store (Cloudflare R2, Backblaze B2, …)
+ * (§14.3). A single signed `PUT` object is all we need — hand-rolled SigV4
+ * keeps the dependency surface at zero, consistent with the rest of the
+ * codebase. Registered in place of {@link StaticAssetStorage} by configuration
+ * alone (`STORAGE_DRIVER=r2` or `b2`); no call site changes (§3.3).
  */
-export class R2Storage implements StoragePort {
-  constructor(private readonly opts: R2Options) {}
-
-  private get host(): string {
-    return `${this.opts.accountId}.r2.cloudflarestorage.com`;
-  }
+export class S3CompatibleStorage implements StoragePort {
+  constructor(private readonly opts: S3CompatibleOptions) {}
 
   getUrl(key: string): string {
     const base = this.opts.publicBaseUrl.replace(/\/$/, '');
@@ -37,7 +34,7 @@ export class R2Storage implements StoragePort {
   }
 
   async put(key: string, data: Buffer, contentType: string): Promise<string> {
-    const region = 'auto';
+    const { host, region } = this.opts;
     const service = 's3';
     const now = new Date();
     const amzDate = now.toISOString().replace(/[:-]|\.\d{3}/g, '');
@@ -48,7 +45,7 @@ export class R2Storage implements StoragePort {
     const payloadHash = sha256hex(data);
     const canonicalHeaders =
       `content-type:${contentType}\n` +
-      `host:${this.host}\n` +
+      `host:${host}\n` +
       `x-amz-content-sha256:${payloadHash}\n` +
       `x-amz-date:${amzDate}\n`;
     const signedHeaders = 'content-type;host;x-amz-content-sha256;x-amz-date';
@@ -81,7 +78,7 @@ export class R2Storage implements StoragePort {
       `AWS4-HMAC-SHA256 Credential=${this.opts.accessKeyId}/${scope}, ` +
       `SignedHeaders=${signedHeaders}, Signature=${signature}`;
 
-    const res = await fetch(`https://${this.host}${canonicalUri}`, {
+    const res = await fetch(`https://${host}${canonicalUri}`, {
       method: 'PUT',
       headers: {
         'content-type': contentType,
@@ -92,7 +89,7 @@ export class R2Storage implements StoragePort {
       body: new Uint8Array(data),
     });
     if (!res.ok) {
-      throw new Error(`R2 upload failed: ${res.status} ${await res.text()}`);
+      throw new Error(`Object storage upload failed: ${res.status} ${await res.text()}`);
     }
     return this.getUrl(key);
   }
