@@ -33,5 +33,3 @@ services:
         sync: false
       - key: B2_REGION
         sync: false
-      - key: B2_PUBLIC_BASE_URL
-        sync: false

@@ -19,16 +19,14 @@ export const EnvSchema = z.object({
   R2_ACCESS_KEY_ID: z.string().default(''),
   R2_SECRET_ACCESS_KEY: z.string().default(''),
   R2_BUCKET: z.string().default(''),
-  /** Public base URL of the bucket (custom domain or r2.dev), used to build asset URLs. */
-  R2_PUBLIC_BASE_URL: z.string().default(''),
   // Backblaze B2 (S3-compatible API) — only read when STORAGE_DRIVER=b2.
+  // The bucket stays private; assets are served through the /media/file/:key
+  // proxy (§14.3), so no public base URL is needed for either driver.
   B2_KEY_ID: z.string().default(''),
   B2_APPLICATION_KEY: z.string().default(''),
   B2_BUCKET: z.string().default(''),
   /** The bucket's region, e.g. `us-west-004` — shown on the bucket's B2 dashboard page. */
   B2_REGION: z.string().default(''),
-  /** Public base URL of the bucket (friendly URL or custom domain), used to build asset URLs. */
-  B2_PUBLIC_BASE_URL: z.string().default(''),
 });
 
 export type Env = z.infer<typeof EnvSchema>;

@@ -10,12 +10,14 @@ import {
   Param,
   Post,
   Query,
+  StreamableFile,
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'node:crypto';
+import type { Readable } from 'node:stream';
 import { createDefaultRegistry } from '@kga/game-engine';
 import { MediaAssetQuerySchema, type GameConfig, type MediaAssetQuery, type Principal } from '@kga/contracts';
 import type { Env } from '../config/env.js';
@@ -31,6 +33,8 @@ export const STORAGE_PORT = Symbol('StoragePort');
 export interface StoragePort {
   getUrl(key: string): string;
   put(key: string, data: Buffer, contentType: string): Promise<string>;
+  /** Only implemented by drivers whose bucket isn't publicly reachable (§14.3). */
+  get?(key: string): Promise<{ body: Readable; contentType: string }>;
 }
 
 /** MVP default (§10.3) — assets ship in the build, served from the CDN. */
@@ -57,8 +61,7 @@ function storageFactory(config: ConfigService<Env, true>): StoragePort {
     const accessKeyId = config.get('R2_ACCESS_KEY_ID', { infer: true });
     const secretAccessKey = config.get('R2_SECRET_ACCESS_KEY', { infer: true });
     const bucket = config.get('R2_BUCKET', { infer: true });
-    const publicBaseUrl = config.get('R2_PUBLIC_BASE_URL', { infer: true });
-    if (!accountId || !accessKeyId || !secretAccessKey || !bucket || !publicBaseUrl) {
+    if (!accountId || !accessKeyId || !secretAccessKey || !bucket) {
       throw new Error('STORAGE_DRIVER=r2 requires all R2_* environment variables (§14.3)');
     }
     return new S3CompatibleStorage({
@@ -67,7 +70,6 @@ function storageFactory(config: ConfigService<Env, true>): StoragePort {
       accessKeyId,
       secretAccessKey,
       bucket,
-      publicBaseUrl,
     });
   }
 
@@ -76,8 +78,7 @@ function storageFactory(config: ConfigService<Env, true>): StoragePort {
     const secretAccessKey = config.get('B2_APPLICATION_KEY', { infer: true });
     const bucket = config.get('B2_BUCKET', { infer: true });
     const region = config.get('B2_REGION', { infer: true });
-    const publicBaseUrl = config.get('B2_PUBLIC_BASE_URL', { infer: true });
-    if (!accessKeyId || !secretAccessKey || !bucket || !region || !publicBaseUrl) {
+    if (!accessKeyId || !secretAccessKey || !bucket || !region) {
       throw new Error('STORAGE_DRIVER=b2 requires all B2_* environment variables (§14.3)');
     }
     return new S3CompatibleStorage({
@@ -86,7 +87,6 @@ function storageFactory(config: ConfigService<Env, true>): StoragePort {
       accessKeyId,
       secretAccessKey,
       bucket,
-      publicBaseUrl,
     });
   }
 
@@ -127,6 +127,19 @@ export class MediaService {
     const subdomain = await this.content.getForPlay(id);
     const plugin = registry.get(subdomain.gameType);
     return plugin.assetsOf(subdomain.gameConfig as GameConfig);
+  }
+
+  /** Backs the `/media/file/:key` proxy for drivers with a private bucket (§14.3). */
+  async streamFile(key: string): Promise<{ body: Readable; contentType: string }> {
+    if (!this.storage.get) throw new NotFoundException('Asset not found');
+    try {
+      return await this.storage.get(key);
+    } catch (err) {
+      if (err instanceof Error && err.message === 'NOT_FOUND') {
+        throw new NotFoundException('Asset not found');
+      }
+      throw err;
+    }
   }
 
   /**
@@ -217,6 +230,14 @@ class MediaController {
   @Get('manifest')
   manifest(@Query('subdomainId') subdomainId: string) {
     return this.media.manifestForSubdomain(subdomainId);
+  }
+
+  /** Serves assets from a private bucket driver (§14.3) — content is non-sensitive. */
+  @Public()
+  @Get('file/:key')
+  async file(@Param('key') key: string): Promise<StreamableFile> {
+    const { body, contentType } = await this.media.streamFile(key);
+    return new StreamableFile(body, { type: contentType });
   }
 
   /**
