@@ -1,10 +1,13 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { z } from 'zod';
 import {
+  AgeGroupSchema,
   GameTypeIdSchema,
+  type AgeGroup,
   type AssetRef,
   type GameTypeId,
-  type Subdomain,
+  type SubdomainForPlay,
+  type SubdomainLevel,
 } from '@kga/contracts';
 import { engineRegistry } from '../../shared/engine';
 import { contentApi } from './api';
@@ -12,10 +15,23 @@ import { HotspotEditor } from './HotspotEditor';
 import { SchemaForm, blankValue, type JsonSchema } from './SchemaForm';
 
 const GAME_TYPES = GameTypeIdSchema.options;
+const AGE_GROUPS = AgeGroupSchema.options;
+const AGE_LABEL: Record<AgeGroup, string> = {
+  AGE_3_4: '3–4',
+  AGE_4_5: '4–5',
+  AGE_5_6: '5–6',
+};
+const LEVELS: { value: SubdomainLevel; label: string }[] = [
+  { value: 1, label: 'בסיסי' },
+  { value: 2, label: 'מתפתח' },
+  { value: 3, label: 'מתקדם' },
+];
 
 type Meta = {
   name: string;
   orderIndex: number;
+  ageGroups: AgeGroup[];
+  level: SubdomainLevel;
   teacherInstruction: string;
   childInstruction: string;
   gameType: GameTypeId;
@@ -28,32 +44,71 @@ function toJsonSchema(gameType: GameTypeId): JsonSchema {
 
 export function SubdomainEditor({
   domainId,
-  existing,
+  subdomainId,
+  defaultAgeGroup,
   onDone,
   onCancel,
 }: {
   domainId: string;
-  existing: (Subdomain & { subdomainVersionId?: string; version?: number }) | null;
+  /** null for a new subdomain; otherwise the row to load in full. */
+  subdomainId: string | null;
+  /** A new subdomain starts in the band the browser is filtered to. */
+  defaultAgeGroup: AgeGroup;
   onDone: () => void;
   onCancel: () => void;
 }) {
+  // Loaded rather than passed in: the browser lists summaries, which carry no
+  // gameConfig, and the editor must never open on a partial record.
+  const [existing, setExisting] = useState<SubdomainForPlay | null>(null);
+  const [loading, setLoading] = useState(subdomainId !== null);
+
   const [meta, setMeta] = useState<Meta>({
-    name: existing?.name ?? '',
-    orderIndex: existing?.orderIndex ?? 0,
-    teacherInstruction: existing?.teacherInstruction ?? '',
-    childInstruction: existing?.childInstruction ?? '',
-    gameType: existing?.gameType ?? 'BINARY_IMAGE_CHOICE',
+    name: '',
+    orderIndex: 0,
+    ageGroups: [defaultAgeGroup],
+    level: 1,
+    teacherInstruction: '',
+    childInstruction: '',
+    gameType: 'BINARY_IMAGE_CHOICE',
   });
 
   const jsonSchema = useMemo(() => toJsonSchema(meta.gameType), [meta.gameType]);
 
-  const [config, setConfig] = useState<Record<string, unknown>>(() => {
-    if (existing && existing.gameConfig) return existing.gameConfig as Record<string, unknown>;
-    return blankValue(toJsonSchema(meta.gameType), {
-      defs: (jsonSchema.$defs ?? {}) as Record<string, JsonSchema>,
-      hints: {},
-    }) as Record<string, unknown>;
-  });
+  const [config, setConfig] = useState<Record<string, unknown>>(
+    () =>
+      blankValue(toJsonSchema('BINARY_IMAGE_CHOICE'), { defs: {}, hints: {} }) as Record<
+        string,
+        unknown
+      >,
+  );
+
+  useEffect(() => {
+    if (!subdomainId) return;
+    let alive = true;
+    contentApi
+      .getSubdomain(subdomainId)
+      .then((row) => {
+        if (!alive) return;
+        setExisting(row);
+        setMeta({
+          name: row.name,
+          orderIndex: row.orderIndex,
+          ageGroups: row.ageGroups,
+          level: row.level,
+          teacherInstruction: row.teacherInstruction,
+          childInstruction: row.childInstruction,
+          gameType: row.gameType,
+        });
+        const cfg = row.gameConfig as Record<string, unknown>;
+        setConfig(cfg);
+        setRawText(JSON.stringify(cfg, null, 2));
+      })
+      .catch((err) => setError(err instanceof Error ? err.message : 'הטעינה נכשלה'))
+      .finally(() => alive && setLoading(false));
+    return () => {
+      alive = false;
+    };
+  }, [subdomainId]);
 
   const [rawMode, setRawMode] = useState(false);
   const [rawText, setRawText] = useState(() => JSON.stringify(config, null, 2));
@@ -104,6 +159,8 @@ export function SubdomainEditor({
         domainId,
         name: meta.name,
         orderIndex: Number(meta.orderIndex),
+        ageGroups: meta.ageGroups,
+        level: meta.level,
         teacherInstruction: meta.teacherInstruction,
         childInstruction: meta.childInstruction,
         gameType: meta.gameType,
@@ -122,6 +179,8 @@ export function SubdomainEditor({
     }
   }
 
+  if (loading) return <p className="muted pad">טוען תת-תחום…</p>;
+
   return (
     <div className="editor">
       <header className="editor-head">
@@ -135,6 +194,50 @@ export function SubdomainEditor({
         <label className="sf-field">
           <span className="sf-label">שם</span>
           <input value={meta.name} onChange={(e) => setMeta({ ...meta, name: e.target.value })} />
+        </label>
+        <fieldset className="sf-field">
+          <span className="sf-label">קבוצות גיל</span>
+          {/* M10 §1 — age lives here now, and a subdomain may apply to more than
+              one band. At least one must stay selected; the API rejects an empty
+              list, and a game that applies to no age is unreachable content. */}
+          <div className="row">
+            {AGE_GROUPS.map((ag) => {
+              const on = meta.ageGroups.includes(ag);
+              return (
+                <button
+                  key={ag}
+                  type="button"
+                  className={`tab ${on ? 'tab-active' : ''}`}
+                  aria-pressed={on}
+                  onClick={() =>
+                    setMeta((m) => {
+                      const next = on
+                        ? m.ageGroups.filter((x) => x !== ag)
+                        : [...m.ageGroups, ag];
+                      return next.length === 0 ? m : { ...m, ageGroups: next };
+                    })
+                  }
+                >
+                  {AGE_LABEL[ag]}
+                </button>
+              );
+            })}
+          </div>
+        </fieldset>
+        <label className="sf-field">
+          <span className="sf-label">רמת קושי</span>
+          <select
+            value={meta.level}
+            onChange={(e) =>
+              setMeta({ ...meta, level: Number(e.target.value) as SubdomainLevel })
+            }
+          >
+            {LEVELS.map((l) => (
+              <option key={l.value} value={l.value}>
+                {l.label}
+              </option>
+            ))}
+          </select>
         </label>
         <label className="sf-field">
           <span className="sf-label">סדר</span>

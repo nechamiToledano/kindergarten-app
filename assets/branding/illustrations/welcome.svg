@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300">
+  <!-- תלם — welcome illustration. -->
+  <circle cx="200" cy="140" r="128" fill="#FFF8EE"/>
+  <ellipse cx="200" cy="248" rx="92" ry="13" fill="#3F9B82" opacity="0.15"/>
+
+  <!-- sun -->
+  <g transform="translate(305,62)">
+    <circle r="20" fill="#FFD66B"/>
+    <g stroke="#FFD66B" stroke-width="5" stroke-linecap="round">
+      <path d="M0,-34 L0,-27"/>
+      <path d="M24,-24 L19,-19"/>
+      <path d="M34,0 L27,0"/>
+      <path d="M24,24 L19,19"/>
+    </g>
+  </g>
+
+  <!-- house mark, large and centered -->
+  <g transform="translate(122,70) scale(0.9)">
+    <path d="M100,36 C132,36 168,64 168,97 L168,147 Q168,170 145,170 L55,170 Q32,170 32,147 L32,97 C32,64 68,36 100,36 Z" fill="#77CDB5"/>
+    <circle cx="138" cy="54" r="11" fill="#FFD66B"/>
+    <path d="M100,96 C96,90 86,90 84,99 C82,108 92,114 100,122 C108,114 118,108 116,99 C114,90 104,90 100,96 Z" fill="#FFF8EE"/>
+    <path d="M84,170 L84,142 Q84,122 100,122 Q116,122 116,142 L116,170 Z" fill="#FF947D"/>
+  </g>
+
+  <!-- sprout, bottom-left -->
+  <g transform="translate(96,236)">
+    <path d="M0,20 L0,0" stroke="#3F9B82" stroke-width="4" stroke-linecap="round" fill="none"/>
+    <path d="M0,10 C-14,10 -16,-2 -4,-4 C-2,4 0,8 0,10Z" fill="#77CDB5"/>
+    <path d="M0,4 C14,4 17,-8 6,-11 C3,-2 0,2 0,4Z" fill="#3F9B82"/>
+  </g>
+
+  <!-- confetti -->
+  <g>
+    <circle cx="70" cy="90" r="5" fill="#FF947D"/>
+    <circle cx="330" cy="150" r="6" fill="#77CDB5"/>
+    <rect x="300" y="210" width="8" height="8" rx="2" fill="#FFD66B" transform="rotate(20 304 214)"/>
+    <circle cx="60" cy="180" r="4" fill="#FFD66B"/>
+  </g>
+</svg>

@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300">
+  <!-- תלם — error illustration. Gentle "oops", never alarming: no red, no sharp shapes. -->
+  <ellipse cx="200" cy="248" rx="92" ry="13" fill="#3F9B82" opacity="0.15"/>
+
+  <!-- soft cloud -->
+  <path d="M140,150 a28,28 0 0 1 8,-55 a36,36 0 0 1 68,-6 a30,30 0 0 1 -6,60 Z"
+        fill="#FFF8EE" stroke="#77CDB5" stroke-width="4"/>
+  <path d="M178,158 C178,170 168,178 168,190" stroke="#FF947D" stroke-width="6"
+        stroke-linecap="round" fill="none"/>
+
+  <!-- house mark, slightly subdued -->
+  <g transform="translate(150,150) scale(0.62)" opacity="0.9">
+    <path d="M100,36 C132,36 168,64 168,97 L168,147 Q168,170 145,170 L55,170 Q32,170 32,147 L32,97 C32,64 68,36 100,36 Z" fill="#77CDB5"/>
+    <path d="M100,96 C96,90 86,90 84,99 C82,108 92,114 100,122 C108,114 118,108 116,99 C114,90 104,90 100,96 Z" fill="#FFF8EE"/>
+    <path d="M84,170 L84,142 Q84,122 100,122 Q116,122 116,142 L116,170 Z" fill="#3F9B82"/>
+  </g>
+
+  <!-- badge -->
+  <g transform="translate(268,110)">
+    <circle r="26" fill="#FF947D"/>
+    <path d="M0,-11 L0,4" stroke="#FFF8EE" stroke-width="6" stroke-linecap="round"/>
+    <circle cy="13" r="3.2" fill="#FFF8EE"/>
+  </g>
+</svg>

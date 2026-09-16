@@ -1,11 +1,11 @@
 import type {
-  AgeGroup,
   CreateDomain,
   CreateSubdomain,
   Domain,
   GameConfig,
-  Subdomain,
   SubdomainForPlay,
+  SubdomainQuery,
+  SubdomainSummary,
   SubdomainVersion,
   UpdateDomain,
   UpdateSubdomain,
@@ -13,8 +13,8 @@ import type {
 import { api } from '../../shared/api/client';
 
 export const contentApi = {
-  listDomains: (ageGroup?: AgeGroup) =>
-    api<Domain[]>(`/content/domains${ageGroup ? `?ageGroup=${ageGroup}` : ''}`),
+  /** M10 §1 — domains are global; age is a property of the subdomain now. */
+  listDomains: () => api<Domain[]>('/content/domains'),
 
   createDomain: (body: CreateDomain) =>
     api<Domain>('/content/domains', { method: 'POST', json: body }),
@@ -25,8 +25,14 @@ export const contentApi = {
   deleteDomain: (id: string) =>
     api<{ deleted: true }>(`/content/domains/${id}`, { method: 'DELETE' }),
 
-  listSubdomains: (domainId: string) =>
-    api<Subdomain[]>(`/content/domains/${domainId}/subdomains`),
+  listSubdomains: (query: SubdomainQuery) => {
+    const params = new URLSearchParams();
+    for (const [key, value] of Object.entries(query)) {
+      if (value !== undefined && value !== '') params.set(key, String(value));
+    }
+    const qs = params.toString();
+    return api<SubdomainSummary[]>(`/content/subdomains${qs ? `?${qs}` : ''}`);
+  },
 
   getSubdomain: (id: string) => api<SubdomainForPlay>(`/content/subdomains/${id}`),
 

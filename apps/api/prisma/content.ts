@@ -6,11 +6,16 @@ import type { AgeGroup, GameConfig } from '@kga/contracts';
  * Spec §9's own tables. Content is data (§3.1): adding a subdomain is a new entry
  * here, never a code change.
  *
- * Media stays on placeholders (Spec §8 / HLD §18.2 — human voice recordings and
- * licensed illustrations are a long-lead dependency running alongside, not before,
- * the engine work). `img()` emits an inline-SVG data URI; `audio()` emits the
- * `tone:` scheme the web AudioUnlockProvider synthesises. Both swap to real URLs
- * with no structural change when the asset pipeline lands.
+ * Media: real illustrations/recordings that already exist under
+ * `apps/web/public/assets` are wired in directly by URL. Where no real asset
+ * exists yet, `img()` emits an inline-SVG placeholder and `audio()` emits the
+ * `tone:` scheme the web AudioUnlockProvider synthesises — both swap to real
+ * URLs with no structural change the moment the asset lands (see the
+ * launch-readiness report for the exact list still outstanding).
+ *
+ * Internal `id` fields are English identifiers (never transliterated Hebrew) —
+ * they are code-level keys, not UI copy. `label` fields stay Hebrew: that text
+ * is what the teacher/child actually see.
  *
  * This file is imported by `seed.ts` and validated, config by config, in
  * `content.spec.ts` (the §15 content-validation guardrail).
@@ -67,6 +72,56 @@ export interface AgeGroupContent {
   domains: DomainSpec[];
 }
 
+/**
+ * M10 §1 — domains are global, so a name that appears under two age groups here
+ * is one `Domain` row, not two. This table is the merge key.
+ *
+ * It intentionally matches the CASE expression in
+ * `migrations/20260915120000_m10_domain_model/migration.sql`: the migration
+ * folded the existing AgeGroupDomain rows using these slugs, and the seed has to
+ * land on the same rows or a re-seed would fork the catalogue in two.
+ */
+export const DOMAIN_META: Record<string, { slug: string; icon: string; description: string }> = {
+  'מודעות פונולוגית': {
+    slug: 'phono',
+    icon: 'audio-lines',
+    description: 'זיהוי צלילים, הברות וחריזה — הבסיס לקריאה ולכתיבה.',
+  },
+  'תפיסה שמיעתית': {
+    slug: 'auditory',
+    icon: 'ear',
+    description: 'הבחנה בין צלילים, זיכרון שמיעתי ורצף.',
+  },
+  'תפיסה חזותית': {
+    slug: 'visual',
+    icon: 'eye',
+    description: 'הבחנה חזותית, דמות ורקע, מתכונת ורצף.',
+  },
+  'חשבון': {
+    slug: 'math',
+    icon: 'calculator',
+    description: 'מספר, כמות, השוואה, ספירה והתאמה חד-חד-ערכית.',
+  },
+  'שפה ואוצר מילים': {
+    slug: 'lang',
+    icon: 'messages-square',
+    description: 'שיום, הבנת הוראות, קטגוריות ומבנה משפט.',
+  },
+  'מוטוריקה': {
+    slug: 'motor',
+    icon: 'activity',
+    description: 'מוטוריקה גסה ועדינה, שיווי משקל ותיאום עין-יד.',
+  },
+};
+
+export function domainMetaFor(name: string): { slug: string; icon: string; description: string } {
+  const known = DOMAIN_META[name];
+  if (known) return known;
+  let hash = 0;
+  for (const ch of name) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
+  return { slug: `domain-${hash.toString(16)}`, icon: 'circle-dot', description: '' };
+}
+
 /** `${prefix}` is an 8-hex-digit domain tag; `n` disambiguates rows under it. */
 const uuid = (prefix: string, n: number): string =>
   `${prefix}-0000-4000-8000-${String(n).padStart(12, '0')}`;
@@ -91,10 +146,10 @@ const phono4to5: DomainSpec = {
         gameType: 'BINARY_IMAGE_CHOICE',
         promptAudioUrl: audio('צליל-פותח-ש'),
         options: [
-          { id: 'shemesh', imageUrl: img('shemesh', 'שמש'), label: 'שמש' },
-          { id: 'tapuach', imageUrl: img('tapuach', 'תפוח'), label: 'תפוח' },
+          { id: 'sun', imageUrl: '/assets/object-sun.png', label: 'שמש' },
+          { id: 'apple', imageUrl: '/assets/object-apple.png', label: 'תפוח' },
         ],
-        correctOptionId: 'shemesh',
+        correctOptionId: 'sun',
       },
     },
     {
@@ -107,44 +162,45 @@ const phono4to5: DomainSpec = {
         gameType: 'MULTI_IMAGE_CHOICE',
         promptAudioUrl: audio('צליל-סוגר-מם'),
         options: [
-          { id: 'yam', imageUrl: img('yam', 'ים'), label: 'ים' },
-          { id: 'lechem', imageUrl: img('lechem', 'לחם'), label: 'לחם' },
-          { id: 'kelev', imageUrl: img('kelev', 'כלב'), label: 'כלב' },
-          { id: 'sulam', imageUrl: img('sulam', 'סולם'), label: 'סולם' },
+          { id: 'sea', imageUrl: '/assets/object-sea.png', label: 'ים' },
+          { id: 'bread', imageUrl: '/assets/food-bread.png', label: 'לחם' },
+          { id: 'dog', imageUrl: '/assets/object-dog.png', label: 'כלב' },
+          { id: 'ladder', imageUrl: '/assets/object-ladder.png', label: 'סולם' },
         ],
-        correctOptionIds: ['yam', 'lechem', 'sulam'],
+        correctOptionIds: ['sea', 'bread', 'ladder'],
       },
     },
     {
       id: '55555555-0003-4003-8003-000000000003',
       name: 'מודעות להברות',
       teacherInstruction:
-        'בַּתְּמוּנָה שלושה חפצים. בַּקְּשִׁי מהילד/ה להקיש על החפץ שֶׁשְּׁמוֹ מורכב משתי הברות (בַּ-לוֹן).',
+        'בַּתְּמוּנָה ארבעה חפצים על שולחן. בַּקְּשִׁי מהילד/ה להקיש על החפץ שֶׁשְּׁמוֹ מורכב משתי הברות (סֵ-פֶר).',
       childInstruction: 'הקש/י על החפץ שיש בשמו שתי הברות.',
       config: {
         gameType: 'HOTSPOT_IMAGE',
-        promptAudioUrl: audio('הברות-בלון'),
-        imageUrl: img('scene-hevrot', 'שולחן חפצים'),
+        promptAudioUrl: audio('הברות-ספר'),
+        imageUrl: '/assets/syllables-table-scene.png',
         targets: [
-          { id: 'kos', x: 0.05, y: 0.35, width: 0.26, height: 0.5 },
-          { id: 'balon', x: 0.37, y: 0.1, width: 0.28, height: 0.62 },
-          { id: 'mispachaim', x: 0.7, y: 0.32, width: 0.26, height: 0.52 },
+          { id: 'banana', x: 0.18, y: 0.37, width: 0.2, height: 0.14 },
+          { id: 'cup', x: 0.39, y: 0.37, width: 0.12, height: 0.13 },
+          { id: 'book', x: 0.49, y: 0.39, width: 0.21, height: 0.13 },
+          { id: 'cube', x: 0.7, y: 0.42, width: 0.09, height: 0.09 },
         ],
-        correctTargetIds: ['balon'],
+        correctTargetIds: ['book'],
       },
     },
     {
       id: '55555555-0004-4004-8004-000000000004',
       name: 'התאמת צליל פותח לאות',
       teacherInstruction: 'הַנִּיחִי שהילד/ה יגרור/תגרור כל תמונה אל האות שֶׁבָּהּ מתחיל שְׁמָהּ.',
-      childInstruction: 'גרור/גררי כל תמונה אל האות שבה היא מתחילה.',
+      childInstruction: 'הקישו על תמונה למעלה, ואז הקישו על האות שבה היא מתחילה.',
       config: {
         gameType: 'DRAG_MATCH',
         promptAudioUrl: audio('התאמת-אות-פותחת'),
         pairs: [
-          { sourceId: 'bayit', sourceImageUrl: img('bayit', 'בית'), targetId: 'bet', targetImageUrl: img('ot-bet', 'ב') },
-          { sourceId: 'gamal', sourceImageUrl: img('gamal', 'גמל'), targetId: 'gimel', targetImageUrl: img('ot-gimel', 'ג') },
-          { sourceId: 'dag', sourceImageUrl: img('dag', 'דג'), targetId: 'dalet', targetImageUrl: img('ot-dalet', 'ד') },
+          { sourceId: 'house', sourceImageUrl: '/assets/object-house.png', targetId: 'bet', targetImageUrl: '/assets/letter-bet.svg' },
+          { sourceId: 'camel', sourceImageUrl: '/assets/animal-camel.png', targetId: 'gimel', targetImageUrl: '/assets/letter-gimel.svg' },
+          { sourceId: 'fish', sourceImageUrl: '/assets/card-fish.png', targetId: 'dalet', targetImageUrl: '/assets/letter-dalet.svg' },
         ],
       },
     },
@@ -159,8 +215,63 @@ const phono4to5: DomainSpec = {
         observationPrompt: 'הילד/ה מפיק/ה מילה מתחרזת נכונה באופן עצמאי.',
       },
     },
+    {
+      id: '55555555-0006-4006-8006-000000000006',
+      name: 'צליל פותח — זיהוי מתוך תמונות הגן (שלב א)',
+      teacherInstruction:
+        'פעילות במוחש עם תמונות אמיתיות מהגן. הַצִּיגִי שתי תמונות של ילדים מהגן, אִמְרִי את הצליל הפותח של שֵׁם אחד מהם, ובַקְּשִׁי מהילד/ה להצביע על התמונה הנכונה.',
+      childInstruction: 'הקשיבו לצליל שהגננת אומרת, והצביעו על התמונה הנכונה.',
+      config: {
+        gameType: 'MANUAL_OBSERVATION',
+        observationPrompt: 'הילד/ה מצביע/ה על התמונה הנכונה לפי הצליל הפותח שנאמר.',
+      },
+    },
+    {
+      id: '55555555-0007-4007-8007-000000000007',
+      name: 'צליל פותח — פרה, חמור, ג׳ירפה (שלב ב)',
+      teacherInstruction:
+        'קודם אִמְרִי את שמות שתי החיות בלי להדגיש צליל, ואז אִמְרִי רק את הצליל הפותח של אחת מהן. בַּקְּשִׁי מהילד/ה להצביע על החיה המתאימה.',
+      childInstruction: 'איזו חיה מתחילה בצליל ששמעתם?',
+      config: {
+        gameType: 'BINARY_IMAGE_CHOICE',
+        promptAudioUrl: audio('צליל-פותח-פרה-חמור'),
+        options: [
+          { id: 'cow', imageUrl: '/assets/object-cow.png', label: 'פרה' },
+          { id: 'donkey', imageUrl: '/assets/animal-donkey.png', label: 'חמור' },
+        ],
+        correctOptionId: 'cow',
+      },
+    },
   ],
 };
+
+/**
+ * A second round of the same activity with the third animal (Spec: "פרה, חמור,
+ * גירפה – זה החיות שאני רוצה שיהיו במשחק"). `BinaryImageChoiceConfig` is
+ * two-option only, so the three animals run as two subdomain instances rather
+ * than one three-way round; both are seeded so all three appear across a
+ * session. Real per-tap spoken feedback with emphasis on the opening sound
+ * ("פ-פ-פ-פרה") is not yet built — today the generic TTS/tone prompt plays
+ * once at the start of the exercise, not on every correct tap. That needs a
+ * small addition to GamePlayer's CorrectFeedback phase, not a content change.
+ */
+const phono4to5Round2: SubdomainSpec = {
+  id: '55555555-0008-4008-8008-000000000008',
+  name: 'צליל פותח — חמור, ג׳ירפה (שלב ב, סבב שני)',
+  teacherInstruction:
+    'קודם אִמְרִי את שמות שתי החיות בלי להדגיש צליל, ואז אִמְרִי רק את הצליל הפותח של אחת מהן. בַּקְּשִׁי מהילד/ה להצביע על החיה המתאימה.',
+  childInstruction: 'איזו חיה מתחילה בצליל ששמעתם?',
+  config: {
+    gameType: 'BINARY_IMAGE_CHOICE',
+    promptAudioUrl: audio('צליל-פותח-חמור-גירפה'),
+    options: [
+      { id: 'donkey', imageUrl: '/assets/animal-donkey.png', label: 'חמור' },
+      { id: 'giraffe', imageUrl: '/assets/animal-giraffe.png', label: 'ג׳ירפה' },
+    ],
+    correctOptionId: 'giraffe',
+  },
+};
+phono4to5.subdomains.push(phono4to5Round2);
 
 // ── AGE 3–4 ────────────────────────────────────────────────────────────────
 const AGE_3_4: AgeGroupContent = {
@@ -197,12 +308,12 @@ const AGE_3_4: AgeGroupContent = {
           childInstruction: 'איזה בעל חיים שמעתם? געו בתמונה.',
           config: {
             gameType: 'BINARY_IMAGE_CHOICE',
-            promptAudioUrl: audio('קול-פרה'),
+            promptAudioUrl: '/assets/audio/sfx-cow.mp3',
             options: [
-              { id: 'para', imageUrl: img('para', 'פרה'), label: 'פרה' },
-              { id: 'chatul', imageUrl: img('chatul', 'חתול'), label: 'חתול' },
+              { id: 'cow', imageUrl: '/assets/object-cow.png', label: 'פרה' },
+              { id: 'cat', imageUrl: '/assets/animal-cat.png', label: 'חתול' },
             ],
-            correctOptionId: 'para',
+            correctOptionId: 'cow',
           },
         },
         {
@@ -215,8 +326,8 @@ const AGE_3_4: AgeGroupContent = {
             gameType: 'DRAG_MATCH',
             promptAudioUrl: audio('התאמת-קולות-חיות'),
             pairs: [
-              { sourceId: 'kol-kelev', sourceImageUrl: img('kol-kelev', 'הב הב'), targetId: 'kelev', targetImageUrl: img('kelev34', 'כלב') },
-              { sourceId: 'kol-chatul', sourceImageUrl: img('kol-chatul', 'מיאו'), targetId: 'chatul', targetImageUrl: img('chatul34', 'חתול') },
+              { sourceId: 'sound-dog', sourceImageUrl: '/assets/sound-dog.png', targetId: 'dog', targetImageUrl: '/assets/object-dog.png' },
+              { sourceId: 'sound-cat', sourceImageUrl: '/assets/sound-cat.png', targetId: 'cat', targetImageUrl: '/assets/animal-cat.png' },
             ],
           },
         },
@@ -230,10 +341,10 @@ const AGE_3_4: AgeGroupContent = {
             gameType: 'BINARY_IMAGE_CHOICE',
             promptAudioUrl: audio('תוף-פעמון-מי-ראשון'),
             options: [
-              { id: 'tof', imageUrl: img('tof', 'תוף'), label: 'תוף' },
-              { id: 'paamon', imageUrl: img('paamon', 'פעמון'), label: 'פעמון' },
+              { id: 'drum', imageUrl: '/assets/object-drum.png', label: 'תוף' },
+              { id: 'bell', imageUrl: '/assets/instrument-bell.png', label: 'פעמון' },
             ],
-            correctOptionId: 'tof',
+            correctOptionId: 'drum',
           },
         },
         {
@@ -274,12 +385,12 @@ const AGE_3_4: AgeGroupContent = {
             gameType: 'MULTI_IMAGE_CHOICE',
             promptAudioUrl: audio('לוטו-מצא-זהה-כדור'),
             options: [
-              { id: 'kadur', imageUrl: img('kadur', 'כדור'), label: 'כדור' },
-              { id: 'buba', imageUrl: img('buba', 'בובה'), label: 'בובה' },
-              { id: 'rakevet', imageUrl: img('rakevet', 'רכבת'), label: 'רכבת' },
-              { id: 'kadur2', imageUrl: img('kadur', 'כדור'), label: 'כדור' },
+              { id: 'ball', imageUrl: '/assets/object-ball.png', label: 'כדור' },
+              { id: 'doll', imageUrl: '/assets/object-doll.png', label: 'בובה' },
+              { id: 'train', imageUrl: '/assets/object-train.png', label: 'רכבת' },
+              { id: 'ball-match', imageUrl: '/assets/object-ball.png', label: 'כדור' },
             ],
-            correctOptionIds: ['kadur2'],
+            correctOptionIds: ['ball-match'],
           },
         },
         {
@@ -290,24 +401,24 @@ const AGE_3_4: AgeGroupContent = {
           config: {
             gameType: 'HOTSPOT_IMAGE',
             promptAudioUrl: audio('איפה-הפח'),
-            imageUrl: img('gina-scene', 'גינה'),
+            imageUrl: '/assets/hotspot-garden-scene.png',
             targets: [
-              { id: 'pach', x: 0.62, y: 0.45, width: 0.2, height: 0.4 },
-              { id: 'safsal', x: 0.1, y: 0.5, width: 0.3, height: 0.25 },
-              { id: 'ec', x: 0.4, y: 0.05, width: 0.22, height: 0.5 },
+              { id: 'trash-can', x: 0.74, y: 0.68, width: 0.15, height: 0.18 },
+              { id: 'bench', x: 0.09, y: 0.58, width: 0.24, height: 0.22 },
+              { id: 'tree', x: 0.37, y: 0.14, width: 0.28, height: 0.5 },
             ],
-            correctTargetIds: ['pach'],
+            correctTargetIds: ['trash-can'],
           },
         },
         {
           id: uuid('a3310000', 4),
           name: 'פאזל 4 חלקים',
           teacherInstruction: 'בַּקְּשִׁי מהילד/ה להרכיב את הפאזל. הַתְחִילִי בפאזל של 2 חלקים ואז 4.',
-          childInstruction: 'הרכיבו את התמונה מהחלקים.',
+          childInstruction: 'הקישו על חלק למטה, ואז הקישו על המשבצת שלו למעלה.',
           config: {
             gameType: 'PUZZLE',
             promptAudioUrl: audio('פאזל-4-חיה'),
-            imageUrl: img('puzzle-para', 'פרה'),
+            imageUrl: '/assets/puzzle-cow.png',
             rows: 2,
             cols: 2,
             pieceCount: 4,
@@ -341,8 +452,8 @@ const AGE_3_4: AgeGroupContent = {
             promptAudioUrl: audio('איפה-יש-יותר'),
             comparisonType: 'MORE',
             items: [
-              { id: 'kvutza-gdola', imageUrl: img('many-apples', '5 תפוחים'), value: 5, label: 'הרבה' },
-              { id: 'kvutza-ktana', imageUrl: img('one-apple', 'תפוח אחד'), value: 1, label: 'מעט' },
+              { id: 'group-many', imageUrl: '/assets/count-5.png', value: 5, label: 'הרבה' },
+              { id: 'group-few', imageUrl: '/assets/count-1.png', value: 1, label: 'מעט' },
             ],
           },
         },
@@ -355,8 +466,8 @@ const AGE_3_4: AgeGroupContent = {
             gameType: 'BINARY_IMAGE_CHOICE',
             promptAudioUrl: audio('כמות-שתיים'),
             options: [
-              { id: 'card-1', imageUrl: img('dot-1', 'נקודה'), label: 'אחת' },
-              { id: 'card-2', imageUrl: img('dot-2', 'שתי נקודות'), label: 'שתיים' },
+              { id: 'card-1', imageUrl: '/assets/count-1.png', label: 'אחת' },
+              { id: 'card-2', imageUrl: '/assets/count-2.png', label: 'שתיים' },
             ],
             correctOptionId: 'card-2',
           },
@@ -383,12 +494,12 @@ const AGE_4_5: AgeGroupContent = {
           childInstruction: 'איזה כלי נגינה שמעתם?',
           config: {
             gameType: 'BINARY_IMAGE_CHOICE',
-            promptAudioUrl: audio('קול-תוף'),
+            promptAudioUrl: '/assets/audio/sfx-drum.wav',
             options: [
-              { id: 'tof', imageUrl: img('tof45', 'תוף'), label: 'תוף' },
-              { id: 'chalil', imageUrl: img('chalil45', 'חליל'), label: 'חליל' },
+              { id: 'drum', imageUrl: '/assets/object-drum.png', label: 'תוף' },
+              { id: 'flute', imageUrl: '/assets/instrument-flute.png', label: 'חליל' },
             ],
-            correctOptionId: 'tof',
+            correctOptionId: 'drum',
           },
         },
         {
@@ -400,10 +511,10 @@ const AGE_4_5: AgeGroupContent = {
             gameType: 'BINARY_IMAGE_CHOICE',
             promptAudioUrl: audio('תוף-חליל-מי-אחרון'),
             options: [
-              { id: 'tof', imageUrl: img('tof45', 'תוף'), label: 'תוף' },
-              { id: 'chalil', imageUrl: img('chalil45', 'חליל'), label: 'חליל' },
+              { id: 'drum', imageUrl: '/assets/object-drum.png', label: 'תוף' },
+              { id: 'flute', imageUrl: '/assets/instrument-flute.png', label: 'חליל' },
             ],
-            correctOptionId: 'chalil',
+            correctOptionId: 'flute',
           },
         },
         {
@@ -416,11 +527,11 @@ const AGE_4_5: AgeGroupContent = {
             gameType: 'SEQUENTIAL_TAP',
             promptAudioUrl: audio('רצף-צבעים-אדום-כחול-אדום'),
             pads: [
-              { id: 'adom', color: '#ef4444', label: 'אדום' },
-              { id: 'kachol', color: '#3b82f6', label: 'כחול' },
-              { id: 'yarok', color: '#10b981', label: 'ירוק' },
+              { id: 'red', color: '#ef4444', label: 'אדום' },
+              { id: 'blue', color: '#3b82f6', label: 'כחול' },
+              { id: 'green', color: '#10b981', label: 'ירוק' },
             ],
-            correctSequence: ['adom', 'kachol', 'adom'],
+            correctSequence: ['red', 'blue', 'red'],
           },
         },
       ],
@@ -435,13 +546,13 @@ const AGE_4_5: AgeGroupContent = {
           name: 'מתכונת / רצף',
           teacherInstruction:
             'לפני הילד/ה רצף צבעים חסר. בַּקְּשִׁי לגרור את הצבע המתאים כדי להשלים את הרצף (אדום־כחול־אדום־כחול...).',
-          childInstruction: 'גררו את הצבע שממשיך את הרצף.',
+          childInstruction: 'הקישו על המשבצת החסרה, ואז הקישו על הצבע המתאים.',
           config: {
             gameType: 'DRAG_MATCH',
             promptAudioUrl: audio('השלמת-רצף-צבעים'),
             pairs: [
-              { sourceId: 'chser-1', sourceImageUrl: img('slot-a', 'חסר'), targetId: 'adom', targetImageUrl: img('col-adom', 'אדום') },
-              { sourceId: 'chser-2', sourceImageUrl: img('slot-b', 'חסר'), targetId: 'kachol', targetImageUrl: img('col-kachol', 'כחול') },
+              { sourceId: 'slot-1', sourceImageUrl: '/assets/slot-1.png', targetId: 'red', targetImageUrl: '/assets/pattern-token-red.png' },
+              { sourceId: 'slot-2', sourceImageUrl: '/assets/slot-2.png', targetId: 'blue', targetImageUrl: '/assets/token-blue.png' },
             ],
           },
         },
@@ -453,24 +564,24 @@ const AGE_4_5: AgeGroupContent = {
           config: {
             gameType: 'HOTSPOT_IMAGE',
             promptAudioUrl: audio('איפה-הילד-מתנדנד'),
-            imageUrl: img('playroom', 'חדר משחק'),
+            imageUrl: '/assets/hotspot-playroom.png',
             targets: [
-              { id: 'nadneda', x: 0.55, y: 0.2, width: 0.3, height: 0.55 },
-              { id: 'shulchan', x: 0.05, y: 0.55, width: 0.35, height: 0.3 },
-              { id: 'aron', x: 0.05, y: 0.05, width: 0.25, height: 0.45 },
+              { id: 'swing', x: 0.04, y: 0.03, width: 0.32, height: 0.68 },
+              { id: 'table', x: 0.33, y: 0.55, width: 0.38, height: 0.42 },
+              { id: 'cabinet', x: 0.68, y: 0.15, width: 0.3, height: 0.62 },
             ],
-            correctTargetIds: ['nadneda'],
+            correctTargetIds: ['swing'],
           },
         },
         {
           id: uuid('a4310000', 3),
           name: 'פאזל 6 חלקים',
           teacherInstruction: 'בַּקְּשִׁי מהילד/ה להרכיב פאזל של 6 חלקים.',
-          childInstruction: 'הרכיבו את התמונה.',
+          childInstruction: 'הקישו על חלק למטה, ואז הקישו על המשבצת שלו למעלה.',
           config: {
             gameType: 'PUZZLE',
             promptAudioUrl: audio('פאזל-6'),
-            imageUrl: img('puzzle-bayit', 'בית'),
+            imageUrl: '/assets/puzzle-house.png',
             rows: 2,
             cols: 3,
             pieceCount: 6,
@@ -480,17 +591,17 @@ const AGE_4_5: AgeGroupContent = {
           id: uuid('a4310000', 4),
           name: 'יוצא דופן',
           teacherInstruction:
-            'הַצִּיגִי שלוש תמונות; שתיים דומות ואחת שונה. בַּקְּשִׁי מהילד/ה להקיש על התמונה השונה.',
-          childInstruction: 'איזו תמונה שונה מהאחרות?',
+            'הַצִּיגִי שלוש מכוניות; שתיים זהות ואחת שונה בצבע. בַּקְּשִׁי מהילד/ה להקיש על המכונית השונה.',
+          childInstruction: 'איזו מכונית שונה מהאחרות?',
           config: {
             gameType: 'PATTERN_COPY',
-            promptAudioUrl: audio('יוצא-דופן-צורות'),
+            promptAudioUrl: audio('יוצא-דופן-מכוניות'),
             options: [
-              { id: 'igul-1', imageUrl: img('circle-a', 'עיגול'), label: 'עיגול' },
-              { id: 'igul-2', imageUrl: img('circle-b', 'עיגול'), label: 'עיגול' },
-              { id: 'ribua', imageUrl: img('square', 'ריבוע'), label: 'ריבוע' },
+              { id: 'car-a', imageUrl: '/assets/car-a.png', label: 'מכונית' },
+              { id: 'car-b', imageUrl: '/assets/car-b.png', label: 'מכונית' },
+              { id: 'car-c', imageUrl: '/assets/car-c.png', label: 'מכונית' },
             ],
-            oddOneOutId: 'ribua',
+            oddOneOutId: 'car-c',
           },
         },
       ],
@@ -510,8 +621,8 @@ const AGE_4_5: AgeGroupContent = {
             promptAudioUrl: audio('מי-גדול'),
             comparisonType: 'BIGGER',
             items: [
-              { id: 'pil', imageUrl: img('pil', 'פיל'), value: 10, label: 'פיל' },
-              { id: 'achbar', imageUrl: img('achbar', 'עכבר'), value: 1, label: 'עכבר' },
+              { id: 'elephant', imageUrl: '/assets/animal-elephant.png', value: 10, label: 'פיל' },
+              { id: 'mouse', imageUrl: '/assets/animal-mouse.png', value: 1, label: 'עכבר' },
             ],
           },
         },
@@ -524,25 +635,25 @@ const AGE_4_5: AgeGroupContent = {
             gameType: 'MULTI_IMAGE_CHOICE',
             promptAudioUrl: audio('כמות-שלוש'),
             options: [
-              { id: 'k1', imageUrl: img('dots-1', 'נקודה'), label: 'אחת' },
-              { id: 'k2', imageUrl: img('dots-2', 'שתיים'), label: 'שתיים' },
-              { id: 'k3', imageUrl: img('dots-3', 'שלוש'), label: 'שלוש' },
+              { id: 'count-1', imageUrl: '/assets/count-1.png', label: 'אחת' },
+              { id: 'count-2', imageUrl: '/assets/count-2.png', label: 'שתיים' },
+              { id: 'count-3', imageUrl: '/assets/count-three-apples.png', label: 'שלוש' },
             ],
-            correctOptionIds: ['k3'],
+            correctOptionIds: ['count-3'],
           },
         },
         {
           id: uuid('a4410000', 3),
           name: 'התאמה חד-חד-ערכית — עגלת סופר',
           teacherInstruction: 'בַּקְּשִׁי מהילד/ה לגרור כל מוצר אל העגלה המתאימה לו.',
-          childInstruction: 'גררו כל מוצר לעגלה שלו.',
+          childInstruction: 'הקישו על מוצר למעלה, ואז הקישו על העגלה המתאימה לו למטה.',
           config: {
             gameType: 'DRAG_MATCH',
             promptAudioUrl: audio('עגלת-סופר'),
             pairs: [
-              { sourceId: 'chalav', sourceImageUrl: img('chalav', 'חלב'), targetId: 'agala-chalav', targetImageUrl: img('agala-1', 'עגלה') },
-              { sourceId: 'lechem', sourceImageUrl: img('lechem45', 'לחם'), targetId: 'agala-lechem', targetImageUrl: img('agala-2', 'עגלה') },
-              { sourceId: 'beitzim', sourceImageUrl: img('beitzim', 'ביצים'), targetId: 'agala-beitzim', targetImageUrl: img('agala-3', 'עגלה') },
+              { sourceId: 'milk', sourceImageUrl: '/assets/food-milk.png', targetId: 'cart-milk', targetImageUrl: '/assets/food-cart.png' },
+              { sourceId: 'bread', sourceImageUrl: '/assets/food-bread.png', targetId: 'cart-bread', targetImageUrl: '/assets/food-cart.png' },
+              { sourceId: 'eggs', sourceImageUrl: '/assets/food-eggs.png', targetId: 'cart-eggs', targetImageUrl: '/assets/food-cart.png' },
             ],
           },
         },
@@ -581,11 +692,11 @@ const AGE_5_6: AgeGroupContent = {
             gameType: 'MULTI_IMAGE_CHOICE',
             promptAudioUrl: audio('צליל-פותח-מ-מתוך-3'),
             options: [
-              { id: 'mitria', imageUrl: img('mitria', 'מטריה'), label: 'מטריה' },
-              { id: 'kise', imageUrl: img('kise', 'כיסא'), label: 'כיסא' },
-              { id: 'tik', imageUrl: img('tik', 'תיק'), label: 'תיק' },
+              { id: 'umbrella', imageUrl: '/assets/card-umbrella.png', label: 'מטריה' },
+              { id: 'chair', imageUrl: '/assets/chair-color.png', label: 'כיסא' },
+              { id: 'bag', imageUrl: '/assets/object-backpack.png', label: 'תיק' },
             ],
-            correctOptionIds: ['mitria'],
+            correctOptionIds: ['umbrella'],
           },
         },
         {
@@ -598,10 +709,10 @@ const AGE_5_6: AgeGroupContent = {
             gameType: 'BINARY_IMAGE_CHOICE',
             promptAudioUrl: audio('ארוך-קצר-רכבת-אוטו'),
             options: [
-              { id: 'rakevet', imageUrl: img('rakevet56', 'רכבת'), label: 'רכבת' },
-              { id: 'oto', imageUrl: img('oto56', 'אוטו'), label: 'אוטו' },
+              { id: 'train', imageUrl: '/assets/object-train.png', label: 'רכבת' },
+              { id: 'car', imageUrl: '/assets/car-a.png', label: 'אוטו' },
             ],
-            correctOptionId: 'rakevet',
+            correctOptionId: 'train',
           },
         },
         {
@@ -609,14 +720,14 @@ const AGE_5_6: AgeGroupContent = {
           name: 'חלוקה להברות (3 הברות)',
           teacherInstruction:
             'בַּקְּשִׁי מהילד/ה לגרור עיגול אחד לכל הברה במילה. הַתְחִילִי במילים בנות 3 הברות (מְ-כוֹ-נִית).',
-          childInstruction: 'גררו עיגול לכל הברה במילה.',
+          childInstruction: 'הקישו על עיגול למעלה, ואז הקישו על ההברה שהוא שייך לה למטה.',
           config: {
             gameType: 'DRAG_MATCH',
             promptAudioUrl: audio('הברות-מכונית'),
             pairs: [
-              { sourceId: 'igul-a', sourceImageUrl: img('igul', 'עיגול'), targetId: 'hevra-1', targetImageUrl: img('hev-1', 'מְ') },
-              { sourceId: 'igul-b', sourceImageUrl: img('igul', 'עיגול'), targetId: 'hevra-2', targetImageUrl: img('hev-2', 'כוֹ') },
-              { sourceId: 'igul-c', sourceImageUrl: img('igul', 'עיגול'), targetId: 'hevra-3', targetImageUrl: img('hev-3', 'נִית') },
+              { sourceId: 'circle-a', sourceImageUrl: '/assets/token-teal.png', targetId: 'syllable-1', targetImageUrl: '/assets/syllable-1.svg' },
+              { sourceId: 'circle-b', sourceImageUrl: '/assets/token-teal.png', targetId: 'syllable-2', targetImageUrl: '/assets/syllable-2.svg' },
+              { sourceId: 'circle-c', sourceImageUrl: '/assets/token-teal.png', targetId: 'syllable-3', targetImageUrl: '/assets/syllable-3.svg' },
             ],
           },
         },
@@ -648,11 +759,11 @@ const AGE_5_6: AgeGroupContent = {
             gameType: 'SEQUENTIAL_TAP',
             promptAudioUrl: audio('רצף-3-צבעים'),
             pads: [
-              { id: 'adom', color: '#ef4444', label: 'אדום' },
-              { id: 'kachol', color: '#3b82f6', label: 'כחול' },
-              { id: 'tzahov', color: '#f59e0b', label: 'צהוב' },
+              { id: 'red', color: '#ef4444', label: 'אדום' },
+              { id: 'blue', color: '#3b82f6', label: 'כחול' },
+              { id: 'yellow', color: '#f59e0b', label: 'צהוב' },
             ],
-            correctSequence: ['adom', 'kachol', 'tzahov', 'adom', 'kachol', 'tzahov'],
+            correctSequence: ['red', 'blue', 'yellow', 'red', 'blue', 'yellow'],
           },
         },
         {
@@ -664,9 +775,9 @@ const AGE_5_6: AgeGroupContent = {
             gameType: 'DRAG_MATCH',
             promptAudioUrl: audio('תמונה-וצל'),
             pairs: [
-              { sourceId: 'tapuz', sourceImageUrl: img('tapuz', 'תפוז'), targetId: 'tzel-tapuz', targetImageUrl: img('tzel-tapuz', 'צל') },
-              { sourceId: 'kelev', sourceImageUrl: img('kelev56', 'כלב'), targetId: 'tzel-kelev', targetImageUrl: img('tzel-kelev', 'צל') },
-              { sourceId: 'kise', sourceImageUrl: img('kise56', 'כיסא'), targetId: 'tzel-kise', targetImageUrl: img('tzel-kise', 'צל') },
+              { sourceId: 'orange', sourceImageUrl: '/assets/orange-color.png', targetId: 'shadow-orange', targetImageUrl: '/assets/orange-silhouette.png' },
+              { sourceId: 'dog', sourceImageUrl: '/assets/dog-color.png', targetId: 'shadow-dog', targetImageUrl: '/assets/dog-silhouette.png' },
+              { sourceId: 'chair', sourceImageUrl: '/assets/chair-color.png', targetId: 'shadow-chair', targetImageUrl: '/assets/chair-silhouette.png' },
             ],
           },
         },
@@ -674,11 +785,11 @@ const AGE_5_6: AgeGroupContent = {
           id: uuid('a5210000', 3),
           name: 'פאזל 8 חלקים',
           teacherInstruction: 'בַּקְּשִׁי מהילד/ה להרכיב פאזל של 8 חלקים.',
-          childInstruction: 'הרכיבו את התמונה.',
+          childInstruction: 'הקישו על חלק למטה, ואז הקישו על המשבצת שלו למעלה.',
           config: {
             gameType: 'PUZZLE',
             promptAudioUrl: audio('פאזל-8'),
-            imageUrl: img('puzzle-perach', 'פרח'),
+            imageUrl: '/assets/puzzle-flower.png',
             rows: 2,
             cols: 4,
             pieceCount: 8,
@@ -700,12 +811,12 @@ const AGE_5_6: AgeGroupContent = {
             gameType: 'MULTI_IMAGE_CHOICE',
             promptAudioUrl: audio('ספרה-שבע'),
             options: [
-              { id: 'n3', imageUrl: img('num-3', '3'), label: '3' },
-              { id: 'n7', imageUrl: img('num-7', '7'), label: '7' },
-              { id: 'n5', imageUrl: img('num-5', '5'), label: '5' },
-              { id: 'n9', imageUrl: img('num-9', '9'), label: '9' },
+              { id: 'digit-3', imageUrl: '/assets/number-3.png', label: '3' },
+              { id: 'digit-7', imageUrl: '/assets/number-7.png', label: '7' },
+              { id: 'digit-5', imageUrl: '/assets/number-5.png', label: '5' },
+              { id: 'digit-9', imageUrl: '/assets/number-9.png', label: '9' },
             ],
-            correctOptionIds: ['n7'],
+            correctOptionIds: ['digit-7'],
           },
         },
         {
@@ -719,8 +830,8 @@ const AGE_5_6: AgeGroupContent = {
             promptAudioUrl: audio('שווה-או-יותר'),
             comparisonType: 'EQUAL',
             items: [
-              { id: 'kv-a', imageUrl: img('grp-4a', '4 עיגולים'), value: 4, label: 'קבוצה א' },
-              { id: 'kv-b', imageUrl: img('grp-4b', '4 עיגולים'), value: 4, label: 'קבוצה ב' },
+              { id: 'group-a', imageUrl: '/assets/count-4.png', value: 4, label: 'קבוצה א' },
+              { id: 'group-b', imageUrl: '/assets/count-4.png', value: 4, label: 'קבוצה ב' },
             ],
           },
         },
@@ -733,11 +844,11 @@ const AGE_5_6: AgeGroupContent = {
             gameType: 'MULTI_IMAGE_CHOICE',
             promptAudioUrl: audio('כמות-חמש'),
             options: [
-              { id: 'c4', imageUrl: img('cnt-4', '4'), label: 'ארבע' },
-              { id: 'c5', imageUrl: img('cnt-5', '5'), label: 'חמש' },
-              { id: 'c6', imageUrl: img('cnt-6', '6'), label: 'שש' },
+              { id: 'count-4', imageUrl: '/assets/count-4.png', label: 'ארבע' },
+              { id: 'count-5', imageUrl: '/assets/count-5.png', label: 'חמש' },
+              { id: 'count-6', imageUrl: '/assets/count-6.png', label: 'שש' },
             ],
-            correctOptionIds: ['c5'],
+            correctOptionIds: ['count-5'],
           },
         },
         {

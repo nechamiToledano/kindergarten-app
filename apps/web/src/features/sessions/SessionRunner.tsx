@@ -1,198 +1,363 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import type { Child, Domain, Rating, SubdomainForPlay } from '@kga/contracts';
-import { useOutbox } from '../../shared/outbox/OutboxProvider';
-import { GamePlayer, type SubdomainRunResult } from './GamePlayer';
+import { useCallback, useMemo, useState } from 'react';
+import { useNavigate, useParams } from 'react-router';
+import { useQuery } from '@tanstack/react-query';
+import type { SessionPlanItem } from '@kga/contracts';
 import {
-  completeSession,
-  createSession,
-  getSubdomainForPlay,
-  listDomains,
-  listSubdomains,
-} from './api';
-
-type Stage =
-  | { kind: 'loading' }
-  | { kind: 'error'; message: string }
-  | { kind: 'empty' }
-  | { kind: 'picking'; domains: Domain[]; sessionId: string }
-  | { kind: 'playing'; subdomains: SubdomainForPlay[]; sessionId: string; domainName: string }
-  | { kind: 'done'; results: SubdomainRunResult[]; domainName: string };
-
-const RATING_LABELS: Record<Rating, string> = {
-  PRESENT: 'קיים',
-  PARTIALLY_PRESENT: 'קיים חלקית',
-  ABSENT: 'לא קיים',
-};
+  Badge,
+  Button,
+  Card,
+  CheckIcon,
+  Dialog,
+  ErrorState,
+  MinusIcon,
+  Spinner,
+  Toast,
+  cn,
+} from '@kga/ui';
+import { getPlanContent } from '../../shared/api/endpoints';
+import {
+  useAbandonSession,
+  useCompleteSession,
+  useSession,
+  useSkipPlanItem,
+} from '../../shared/api/queries';
+import { useOutbox } from '../../shared/outbox/OutboxProvider';
+import { RATING_LABELS, RATING_TONE } from '../../shared/format';
+import { GamePlayer, type SubdomainRunResult } from './GamePlayer';
 
 /**
- * One child through one domain's subdomains. The §8 state machine (inside
- * GamePlayer, shared with M2) drives each subdomain; every result is written
- * straight to the IndexedDB outbox (§11.5) and flushed in the background. M5
- * added the domain picker — the teacher chooses which of the age group's domains
- * to run this sitting.
+ * The assessment runner.
+ *
+ * Two audiences share one device here, and the screen is built around keeping
+ * them apart. While a game is on, the surface is the child's: full-bleed, no
+ * navigation, nothing to wander into. Between games it is the teacher's: where
+ * they are in the plan, what is left, and the controls to skip, pause or finish.
+ *
+ * There is no exit affordance during play — leaving is a deliberate act from the
+ * teacher's panel, because a child will tap anything on the screen.
  */
-export function SessionRunner({ child, onExit }: { child: Child; onExit: () => void }) {
+export function SessionRunner() {
+  const { sessionId } = useParams<{ sessionId: string }>();
+  const navigate = useNavigate();
   const { queue, pending, syncing, flush } = useOutbox();
-  const [stage, setStage] = useState<Stage>({ kind: 'loading' });
-  const [current, setCurrent] = useState(0);
-  const results = useRef<SubdomainRunResult[]>([]);
-  const started = useRef(false);
 
-  useEffect(() => {
-    if (started.current) return;
-    started.current = true;
-    (async () => {
-      try {
-        const session = await createSession(child.id);
-        const domains = await listDomains(session.ageGroupAtTime);
-        if (domains.length === 0) return setStage({ kind: 'empty' });
-        setStage({ kind: 'picking', domains, sessionId: session.id });
-      } catch (err) {
-        setStage({ kind: 'error', message: err instanceof Error ? err.message : 'שגיאה' });
-      }
-    })();
-  }, [child.id]);
+  const [playing, setPlaying] = useState<string | null>(null);
+  const [confirmExit, setConfirmExit] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+  const onActionError = (err: unknown, fallback: string) =>
+    setToast(err instanceof Error ? err.message : fallback);
 
-  const pickDomain = useCallback(
-    async (domain: Domain, sessionId: string) => {
-      setStage({ kind: 'loading' });
-      try {
-        const stubs = await listSubdomains(domain.id);
-        if (stubs.length === 0) return setStage({ kind: 'empty' });
-        const subdomains = await Promise.all(stubs.map((s) => getSubdomainForPlay(s.id)));
-        results.current = [];
-        setCurrent(0);
-        setStage({ kind: 'playing', subdomains, sessionId, domainName: domain.name });
-      } catch (err) {
-        setStage({ kind: 'error', message: err instanceof Error ? err.message : 'שגיאה' });
-      }
-    },
-    [],
+  const sessionQuery = useSession(sessionId);
+  const session = sessionQuery.data;
+
+  const planIds = useMemo(
+    () => session?.plan.map((item) => item.subdomainId) ?? [],
+    [session],
+  );
+
+  // One request for the whole plan, issued as soon as the session is known, so
+  // the first game is already resolved when the teacher taps start.
+  const contentQuery = useQuery({
+    queryKey: ['plan-content', sessionId, planIds.join(',')],
+    queryFn: () => getPlanContent(planIds),
+    enabled: planIds.length > 0,
+    staleTime: Infinity,
+  });
+
+  const completeSession = useCompleteSession();
+  const abandonSession = useAbandonSession();
+  const skipItem = useSkipPlanItem();
+
+  const contentById = useMemo(
+    () => new Map((contentQuery.data ?? []).map((item) => [item.id, item])),
+    [contentQuery.data],
   );
 
   const handleComplete = useCallback(
     async (result: SubdomainRunResult) => {
-      if (stage.kind !== 'playing') return;
-      results.current = [...results.current, result];
-      const played = stage.subdomains.find((s) => s.id === result.subdomainId);
-      if (played) {
-        await queue({
-          clientId: crypto.randomUUID(),
-          sessionId: stage.sessionId,
-          subdomainId: result.subdomainId,
-          subdomainVersionId: played.subdomainVersionId,
-          attemptsCount: result.attemptsCount,
-          rating: result.rating,
-          teacherNote: result.teacherNote,
-          rawAnswers: result.rawAnswers,
-        });
-      }
+      const content = contentById.get(result.subdomainId);
+      if (!content || !sessionId) return;
 
-      if (current + 1 < stage.subdomains.length) {
-        setCurrent((n) => n + 1);
-      } else {
-        try {
-          await completeSession(stage.sessionId);
-        } catch {
-          /* completion is best-effort — the outbox flush still delivers the results */
-        }
-        setStage({ kind: 'done', results: results.current, domainName: stage.domainName });
-      }
+      // Straight to the outbox: the rating is safe on the device before any
+      // network call, and sync happens in the background.
+      await queue({
+        clientId: crypto.randomUUID(),
+        sessionId,
+        subdomainId: result.subdomainId,
+        subdomainVersionId: content.subdomainVersionId,
+        attemptsCount: result.attemptsCount,
+        rating: result.rating,
+        teacherNote: result.teacherNote,
+        rawAnswers: result.rawAnswers,
+      });
+
+      setPlaying(null);
+      void sessionQuery.refetch();
     },
-    [stage, current, queue],
+    [contentById, queue, sessionId, sessionQuery],
   );
 
-  if (stage.kind === 'loading') return <p className="pad">טוען סשן…</p>;
-  if (stage.kind === 'error') return <ExitCard message={stage.message} onExit={onExit} />;
-  if (stage.kind === 'empty')
-    return <ExitCard message="אין תוכן זמין לקבוצת הגיל של הילד/ה." onExit={onExit} />;
-
-  if (stage.kind === 'picking') {
+  // contentQuery is disabled while planIds is empty, so it never leaves
+  // "pending" on its own — an empty plan (a session from before per-item
+  // plans existed) must not be mistaken for content still loading.
+  if (sessionQuery.isPending || (planIds.length > 0 && contentQuery.isPending)) {
     return (
-      <div className="pad">
-        <h1>בחירת תחום — {child.displayName}</h1>
-        <p className="muted">בחרו את התחום לאבחון בסשן זה.</p>
-        <ul className="domain-list">
-          {stage.domains.map((domain) => (
-            <li key={domain.id}>
-              <button
-                type="button"
-                className="btn-primary"
-                onClick={() => void pickDomain(domain, stage.sessionId)}
-              >
-                {domain.name}
-              </button>
-            </li>
-          ))}
-        </ul>
-        <button type="button" className="btn-ghost" onClick={onExit}>
-          חזרה לרשימה
-        </button>
+      <div className="flex min-h-dvh items-center justify-center gap-3 text-muted-foreground">
+        <Spinner className="size-5" />
+        טוען אבחון…
       </div>
     );
   }
 
-  if (stage.kind === 'done') {
+  if (sessionQuery.isError || !session) {
     return (
-      <div className="pad summary">
-        <h1>הסתיים — {stage.domainName}</h1>
-        <p className="muted">
-          {child.displayName} · {stage.results.length} תת-תחומים
-        </p>
-        <ul className="summary-list">
-          {stage.results.map((r) => (
-            <li key={r.subdomainId}>
-              <span>{RATING_LABELS[r.rating]}</span>
-              <span className="muted">
-                {r.attemptsCount} ניסיונות{r.teacherNote ? ` · "${r.teacherNote}"` : ''}
-              </span>
-            </li>
-          ))}
-        </ul>
-        <p className="muted">
-          {pending === 0
-            ? '✓ כל התוצאות נשמרו בשרת'
-            : `${pending} תוצאות ממתינות לסנכרון${syncing ? ' (מסנכרן…)' : ''}`}
-        </p>
-        <div className="row">
-          {pending > 0 && (
-            <button type="button" className="btn-ghost" onClick={() => void flush()}>
-              סנכרן עכשיו
-            </button>
-          )}
-          <button type="button" className="btn-primary" onClick={onExit}>
-            חזרה לרשימה
-          </button>
-        </div>
+      <div className="mx-auto max-w-lg p-6">
+        <ErrorState
+          message={
+            sessionQuery.error instanceof Error ? sessionQuery.error.message : 'האבחון לא נטען'
+          }
+          onRetry={() => void sessionQuery.refetch()}
+        />
+        <Button className="mt-4" variant="outline" onClick={() => navigate('/children')}>
+          חזרה לרשימת הילדים
+        </Button>
       </div>
     );
   }
 
-  const subdomain = stage.subdomains[current];
+  // A session with no plan items predates per-item plans and can never be
+  // run — without this it reads as "0 of 0 done", which the progress bar
+  // and the finished-card below would otherwise show as a completed sitting.
+  if (session.plan.length === 0) {
+    return (
+      <div className="mx-auto max-w-lg p-6">
+        <ErrorState message="לאבחון הזה אין תחנות מתוכננות ולא ניתן להמשיך אותו." />
+        <Button className="mt-4" variant="outline" onClick={() => navigate(`/children/${session.childId}`)}>
+          חזרה לפרופיל
+        </Button>
+      </div>
+    );
+  }
+
+  /* ── The child's surface ─────────────────────────────────────────────── */
+  if (playing) {
+    const content = contentById.get(playing);
+    if (content) {
+      return (
+        <GamePlayer
+          key={content.id}
+          subdomain={{
+            id: content.id,
+            name: content.name,
+            teacherInstruction: content.teacherInstruction,
+            childInstruction: content.childInstruction,
+            gameConfig: content.gameConfig,
+          }}
+          onComplete={handleComplete}
+        />
+      );
+    }
+  }
+
+  /* ── The teacher's surface ───────────────────────────────────────────── */
+  const { progress } = session;
+  const next = session.plan.find((item) => item.status === 'PENDING');
+  const finished = progress.pending === 0;
+  const closed = !!session.completedAt || !!session.abandonedAt;
+
   return (
-    <GamePlayer
-      key={subdomain.id}
-      subdomain={{
-        id: subdomain.id,
-        name: subdomain.name,
-        teacherInstruction: subdomain.teacherInstruction,
-        childInstruction: subdomain.childInstruction,
-        gameConfig: subdomain.gameConfig,
-      }}
-      onComplete={handleComplete}
-    />
+    <div className="mx-auto flex min-h-dvh max-w-3xl flex-col gap-5 p-4 md:p-6">
+      <header className="flex flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-sm text-muted-foreground">אבחון בתהליך</p>
+          <h1 className="font-display truncate text-xl font-semibold">{session.childName}</h1>
+        </div>
+        <Button variant="ghost" onClick={() => setConfirmExit(true)}>
+          {closed ? 'סגירה' : 'יציאה'}
+        </Button>
+      </header>
+
+      <Card className="p-5">
+        <div className="mb-2 flex items-baseline justify-between gap-2">
+          <span className="text-sm font-medium">התקדמות</span>
+          <span className="tabular text-sm text-muted-foreground">
+            {progress.done + progress.skipped} מתוך {progress.total}
+          </span>
+        </div>
+        {/* Done and skipped are shown apart: a plan that was half skipped is not
+            the same thing as one that was half completed. */}
+        <div className="flex h-2.5 w-full overflow-hidden rounded-full bg-secondary">
+          <div
+            className="bg-present transition-[width] duration-500"
+            style={{ inlineSize: `${(progress.done / progress.total) * 100}%` }}
+          />
+          <div
+            className="bg-muted-foreground/40 transition-[width] duration-500"
+            style={{ inlineSize: `${(progress.skipped / progress.total) * 100}%` }}
+          />
+        </div>
+        <p className="tabular mt-2 text-xs text-muted-foreground">
+          {progress.done} הושלמו · {progress.skipped} דולגו · {progress.pending} ממתינים
+        </p>
+      </Card>
+
+      {!closed && next && (
+        <Card className="flex flex-col gap-3 p-5">
+          <div>
+            <p className="text-sm text-muted-foreground">התחנה הבאה</p>
+            <h2 className="font-display text-lg font-semibold">{next.subdomainName}</h2>
+            <p className="text-sm text-muted-foreground">{next.domainName}</p>
+          </div>
+          <p className="rounded-lg bg-secondary/60 p-3 text-sm">
+            {contentById.get(next.subdomainId)?.teacherInstruction ??
+              'הוראות ההפעלה יוצגו במסך הפתיחה.'}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              size="lg"
+              onClick={() => setPlaying(next.subdomainId)}
+              disabled={!contentById.has(next.subdomainId)}
+            >
+              מעבירים לילד/ה
+            </Button>
+            <Button
+              variant="ghost"
+              loading={skipItem.isPending}
+              onClick={() =>
+                sessionId &&
+                skipItem.mutate(
+                  { id: sessionId, subdomainId: next.subdomainId },
+                  { onError: (err) => onActionError(err, 'הדילוג נכשל') },
+                )
+              }
+            >
+              דילוג על תחנה זו
+            </Button>
+          </div>
+          {!contentById.has(next.subdomainId) && (
+            <p className="text-sm text-destructive">
+              המשחק הזה אינו זמין כרגע. דלגו עליו כדי להמשיך.
+            </p>
+          )}
+        </Card>
+      )}
+
+      {!closed && finished && (
+        <Card className="flex flex-col gap-3 p-5 text-center">
+          <h2 className="font-display text-lg font-semibold">סיימתם את כל התחנות</h2>
+          <p className="text-sm text-muted-foreground">
+            {pending === 0
+              ? 'כל התוצאות נשמרו.'
+              : `${pending} תוצאות ממתינות לסנכרון${syncing ? ' (מסנכרן…)' : ''}.`}
+          </p>
+          <div className="flex flex-wrap justify-center gap-2">
+            {pending > 0 && (
+              <Button variant="outline" onClick={() => void flush()}>
+                סנכרון עכשיו
+              </Button>
+            )}
+            <Button
+              loading={completeSession.isPending}
+              onClick={() =>
+                sessionId &&
+                completeSession.mutate(sessionId, {
+                  onSuccess: () => navigate(`/children/${session.childId}`),
+                  onError: (err) => onActionError(err, 'סיום האבחון נכשל'),
+                })
+              }
+            >
+              סיום האבחון
+            </Button>
+          </div>
+        </Card>
+      )}
+
+      <PlanList plan={session.plan} activeId={next?.subdomainId} />
+
+      <Dialog
+        open={confirmExit}
+        onClose={() => setConfirmExit(false)}
+        title={closed ? 'חזרה לפרופיל' : 'יציאה מהאבחון'}
+        description={
+          closed
+            ? undefined
+            : 'התוצאות שכבר נרשמו נשמרות. התחנות שנותרו יסומנו כדילוג, כדי שהאבחון לא יישאר פתוח לנצח.'
+        }
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setConfirmExit(false)}>
+              חזרה לאבחון
+            </Button>
+            {closed ? (
+              <Button onClick={() => navigate(`/children/${session.childId}`)}>לפרופיל</Button>
+            ) : (
+              <Button
+                variant="danger"
+                loading={abandonSession.isPending}
+                onClick={() =>
+                  sessionId &&
+                  abandonSession.mutate(sessionId, {
+                    onSuccess: () => navigate(`/children/${session.childId}`),
+                    onError: (err) => onActionError(err, 'הסיום המוקדם נכשל'),
+                  })
+                }
+              >
+                סיום מוקדם
+              </Button>
+            )}
+          </>
+        }
+      >
+        <p className="text-sm text-muted-foreground">
+          {progress.pending} תחנות טרם בוצעו.
+        </p>
+      </Dialog>
+
+      {toast && <Toast message={toast} tone="absent" onDone={() => setToast(null)} />}
+    </div>
   );
 }
 
-function ExitCard({ message, onExit }: { message: string; onExit: () => void }) {
+function PlanList({ plan, activeId }: { plan: SessionPlanItem[]; activeId?: string }) {
   return (
-    <div className="pad">
-      <div className="card">
-        <p>{message}</p>
-        <button type="button" className="btn-primary" onClick={onExit}>
-          חזרה
-        </button>
-      </div>
-    </div>
+    <Card className="p-2">
+      <ul className="flex flex-col">
+        {plan.map((item) => (
+          <li
+            key={item.id}
+            className={cn(
+              'flex items-center gap-3 rounded-lg px-3 py-2.5',
+              item.subdomainId === activeId && 'bg-accent/60',
+            )}
+          >
+            <span
+              className={cn(
+                'flex size-6 shrink-0 items-center justify-center rounded-full text-xs',
+                item.status === 'DONE' && 'bg-present-soft text-present',
+                item.status === 'SKIPPED' && 'bg-secondary text-muted-foreground',
+                item.status === 'PENDING' && 'border border-border text-muted-foreground',
+              )}
+            >
+              {item.status === 'DONE' ? (
+                <CheckIcon className="size-3.5" />
+              ) : item.status === 'SKIPPED' ? (
+                <MinusIcon className="size-3.5" />
+              ) : (
+                <span className="tabular">{item.orderIndex + 1}</span>
+              )}
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-sm font-medium">{item.subdomainName}</span>
+              <span className="block truncate text-xs text-muted-foreground">
+                {item.domainName}
+              </span>
+            </span>
+            {item.rating && (
+              <Badge tone={RATING_TONE[item.rating]}>{RATING_LABELS[item.rating]}</Badge>
+            )}
+          </li>
+        ))}
+      </ul>
+    </Card>
   );
 }

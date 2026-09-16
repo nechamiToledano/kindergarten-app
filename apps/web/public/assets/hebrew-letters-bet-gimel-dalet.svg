@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="letters-title letters-desc">
+  <title id="letters-title">האותיות ב ג ד</title>
+  <desc id="letters-desc">שלוש אותיות עבריות מדויקות להצגה בכרטיס לימודי</desc>
+  <rect width="1024" height="1024" fill="#FAF6EF"/>
+  <g fill="#243746" font-family="Arial, Noto Sans Hebrew, sans-serif" font-size="270" font-weight="700" text-anchor="middle" direction="rtl">
+    <text x="760" y="610">ד</text>
+    <text x="512" y="610">ג</text>
+    <text x="264" y="610">ב</text>
+  </g>
+</svg>

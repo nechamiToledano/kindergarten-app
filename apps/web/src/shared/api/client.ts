@@ -1,4 +1,5 @@
 import type { AuthResult } from '@kga/contracts';
+import { type ApiErrorBody, friendlyErrorMessage, networkErrorMessage } from './errors';
 
 /**
  * M3 — a thin fetch wrapper. All server state goes through here so auth,
@@ -67,28 +68,35 @@ export async function api<T>(
   retry = true,
 ): Promise<T> {
   const { json, headers, ...rest } = init;
-  const res = await fetch(`${BASE}${path}`, {
-    ...rest,
-    headers: {
-      ...(json !== undefined ? { 'content-type': 'application/json' } : {}),
-      ...(tokenStore.access ? { authorization: `Bearer ${tokenStore.access}` } : {}),
-      ...headers,
-    },
-    body: json !== undefined ? JSON.stringify(json) : rest.body,
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${BASE}${path}`, {
+      // Every response here is tenant-scoped, live data — never let the
+      // browser serve a conditionally-cached (304) response for it.
+      cache: 'no-store',
+      ...rest,
+      headers: {
+        ...(json !== undefined ? { 'content-type': 'application/json' } : {}),
+        ...(tokenStore.access ? { authorization: `Bearer ${tokenStore.access}` } : {}),
+        ...headers,
+      },
+      body: json !== undefined ? JSON.stringify(json) : rest.body,
+    });
+  } catch {
+    throw new ApiError(0, networkErrorMessage());
+  }
 
   if (res.status === 401 && retry && (await tryRefresh())) {
     return api<T>(path, init, false);
   }
   if (!res.ok) {
-    let message = res.statusText;
+    let body: ApiErrorBody | undefined;
     try {
-      const body = (await res.json()) as { message?: string };
-      if (body.message) message = body.message;
+      body = (await res.json()) as ApiErrorBody;
     } catch {
-      /* keep statusText */
+      // No JSON body — a proxy or gateway error page, not our API.
     }
-    throw new ApiError(res.status, message);
+    throw new ApiError(res.status, friendlyErrorMessage(res.status, body));
   }
   if (res.status === 204) return undefined as T;
   return (await res.json()) as T;
@@ -102,13 +110,26 @@ export async function apiBlob(
   path: string,
   retry = true,
 ): Promise<{ blob: Blob; filename: string }> {
-  const res = await fetch(`${BASE}${path}`, {
-    headers: tokenStore.access ? { authorization: `Bearer ${tokenStore.access}` } : {},
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${BASE}${path}`, {
+      headers: tokenStore.access ? { authorization: `Bearer ${tokenStore.access}` } : {},
+    });
+  } catch {
+    throw new ApiError(0, networkErrorMessage());
+  }
   if (res.status === 401 && retry && (await tryRefresh())) {
     return apiBlob(path, false);
   }
-  if (!res.ok) throw new ApiError(res.status, res.statusText);
+  if (!res.ok) {
+    let body: ApiErrorBody | undefined;
+    try {
+      body = (await res.json()) as ApiErrorBody;
+    } catch {
+      // No JSON body — a proxy or gateway error page, not our API.
+    }
+    throw new ApiError(res.status, friendlyErrorMessage(res.status, body));
+  }
   const disposition = res.headers.get('content-disposition') ?? '';
   const match = /filename="?([^"]+)"?/.exec(disposition);
   return { blob: await res.blob(), filename: match?.[1] ?? 'report' };

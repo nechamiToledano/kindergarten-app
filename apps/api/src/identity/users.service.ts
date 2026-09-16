@@ -8,6 +8,7 @@ import * as argon2 from 'argon2';
 import type { CreateUser, Principal, Role, UpdateUser, User } from '@kga/contracts';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { AuditService } from '../common/audit.service.js';
+import { SettingsService } from '../settings/settings.service.js';
 
 type UserRow = {
   id: string;
@@ -32,7 +33,16 @@ export class UsersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly settings: SettingsService,
   ) {}
+
+  /** M11 — the static schema only sets an absolute floor; the real minimum is admin-configurable. */
+  private async assertPasswordPolicy(password: string) {
+    const policy = await this.settings.get('security.passwordPolicy');
+    if (password.length < policy.minLength) {
+      throw new BadRequestException(`Password must be at least ${policy.minLength} characters`);
+    }
+  }
 
   /** The kindergartens a manager may act within. */
   private async managedKindergartenIds(principal: Principal): Promise<string[]> {
@@ -86,6 +96,7 @@ export class UsersService {
       throw new ForbiddenException('That kindergarten is outside your scope');
     }
     this.assertAssignable(principal, input.role, input.kindergartenId);
+    await this.assertPasswordPolicy(input.password);
     const existing = await this.prisma.user.findFirst({ where: { email: input.email } });
     if (existing) throw new BadRequestException('Email already in use');
 
@@ -103,6 +114,7 @@ export class UsersService {
   }
 
   async update(principal: Principal, id: string, input: UpdateUser): Promise<User> {
+    if (input.password !== undefined) await this.assertPasswordPolicy(input.password);
     const current = await this.requireManaged(principal, id);
     const nextRole = input.role ?? current.role;
     const nextKg =

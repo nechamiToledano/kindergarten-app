@@ -1,0 +1,725 @@
+/*
+ * ============================================================================
+ * The child-facing play surface.
+ * ============================================================================
+ *
+ * The one part of the product a four-year-old looks at, and the one place the
+ * calm teacher palette deliberately does not apply. It is warmer, larger and
+ * louder, and it has no chrome at all — no navigation, no back button, nothing
+ * a child can tap their way out of.
+ *
+ * This replaces the game half of the old `app.css`. Everything else in that
+ * file — the teacher's cards, tables, shells and dashboards — is gone, replaced
+ * by the design system in `packages/ui`; keeping both was how the product ended
+ * up with two contradictory definitions of a card.
+ *
+ * Tokens here are local to this surface and intentionally separate from the
+ * teacher tokens in index.css.
+ */
+
+:root {
+  --play-warm: #f6a35c;
+  --play-warm-soft: #fdf0e0;
+  --play-cool: #5b9bb5;
+  --play-cool-soft: #e6f1f5;
+  --play-ink: #33403b;
+  --play-surface: #fffdf9;
+  --play-correct: #3f9d78;
+  --play-wrong: #d1705c;
+  --play-radius: 28px;
+  --play-shadow: 0 18px 40px -20px rgba(51, 64, 59, 0.45);
+  --play-ease: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* Selection/board tokens used by the individual game components
+     (Puzzle, DragMatch, Comparison, SequentialTap, ImageCard). These were
+     referenced via var(...) without ever being defined, so every "selected"
+     border and every empty drop-slot silently rendered as nothing. */
+  --accent-2: var(--play-cool);
+  --border: rgba(51, 64, 59, 0.25);
+  --code-bg: rgba(255, 255, 255, 0.6);
+  /* Same story: Comparison's "שווה" button and DragMatch's helper caption
+     reference these but nothing ever defined them. */
+  --accent-2-bg: var(--play-cool-soft);
+  --text-h: var(--play-ink);
+  --muted-foreground: rgba(51, 64, 59, 0.6);
+}
+
+.game-screen {
+  position: relative;
+  block-size: 100dvh;
+  display: flex;
+  flex-direction: column;
+  padding: clamp(0.75rem, 2.5vw, 1.75rem);
+  background: linear-gradient(165deg, var(--play-warm-soft) 0%, var(--play-cool-soft) 120%);
+  color: var(--play-ink);
+  /* A child rests a palm on the glass; text selection and the iOS callout menu
+     are pure interference here. */
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  overflow: hidden;
+}
+
+/* Soft, warm decoration — two blurred blobs that never compete with the
+   content or grow with it, so they cost nothing toward scroll. */
+.game-screen::before,
+.game-screen::after {
+  content: '';
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(40px);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.game-screen::before {
+  inset-block-start: -10%;
+  inset-inline-end: -8%;
+  inline-size: clamp(140px, 26vw, 320px);
+  block-size: clamp(140px, 26vw, 320px);
+  background: rgba(246, 163, 92, 0.22);
+}
+
+.game-screen::after {
+  inset-block-end: -12%;
+  inset-inline-start: -8%;
+  inline-size: clamp(160px, 30vw, 360px);
+  block-size: clamp(160px, 30vw, 360px);
+  background: rgba(91, 155, 181, 0.18);
+}
+
+.game-screen > * {
+  position: relative;
+  z-index: 1;
+}
+
+.game-screen-centered {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(0.75rem, 2vw, 1.5rem);
+  text-align: center;
+  min-block-size: 0;
+}
+
+.game-topbar {
+  position: absolute;
+  inset-block-start: clamp(0.75rem, 2.5vw, 1.5rem);
+  inset-inline: clamp(0.75rem, 2.5vw, 1.5rem);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 0.9rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(6px);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: rgba(51, 64, 59, 0.6);
+}
+
+.game-brand,
+.game-step,
+.game-progress-label {
+  letter-spacing: 0.02em;
+}
+
+/* Friendly attempt tracker — replaces the plain "נסיון 2" text with dots a
+   child can also read as "how much is left", not just a counter for the adult. */
+.game-progress-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.game-progress-dot {
+  inline-size: 9px;
+  block-size: 9px;
+  border-radius: 50%;
+  background: rgba(51, 64, 59, 0.18);
+  transition: background 200ms var(--play-ease), transform 200ms var(--play-ease);
+}
+
+.game-progress-dot.is-done {
+  background: var(--play-cool);
+  transform: scale(1.15);
+}
+
+.game-kicker {
+  display: inline-block;
+  padding: 0.35rem 0.9rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.75);
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--play-cool);
+}
+
+/* ── Cards ──────────────────────────────────────────────────────────────── */
+
+.game-hero-card,
+.instruction-card,
+.rating-card,
+.game-play-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(0.6rem, 1.6vw, 1rem);
+  inline-size: min(760px, 92vw);
+  max-block-size: 88dvh;
+  padding: clamp(1.1rem, 3.2vw, 2.5rem);
+  border-radius: var(--play-radius);
+  background: var(--play-surface);
+  box-shadow: var(--play-shadow);
+  /* The card's own content scrolls when it doesn't fit a short viewport,
+     instead of clipping (old `overflow: hidden`, which silently cut the
+     submit button off on short/zoomed screens) or scrolling the whole
+     game screen, which the child-facing surface never does. */
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: var(--play-cool) transparent;
+  animation: card-in 320ms var(--play-ease) both;
+  /* Scroll shadow: two color stops that scroll with the content (painting
+     over it near the top/bottom edge) plus two that stay fixed to the box
+     (a soft shadow). While a card is scrolled to its start/end the matching
+     color stop fully covers its shadow, so the cue only shows on the edge
+     that actually has more content — a static hint costs nothing to render
+     and needs no JS to track scroll position. */
+  background-image:
+    linear-gradient(var(--play-surface), var(--play-surface)),
+    linear-gradient(var(--play-surface), var(--play-surface)),
+    linear-gradient(to bottom, rgba(51, 64, 59, 0.16), transparent),
+    linear-gradient(to top, rgba(51, 64, 59, 0.16), transparent);
+  background-repeat: no-repeat;
+  background-size: 100% 28px, 100% 28px, 100% 14px, 100% 14px;
+  background-position: top, bottom, top, bottom;
+  background-attachment: local, local, scroll, scroll;
+}
+
+.game-hero-card::-webkit-scrollbar,
+.instruction-card::-webkit-scrollbar,
+.rating-card::-webkit-scrollbar,
+.game-play-card::-webkit-scrollbar {
+  inline-size: 8px;
+}
+
+.game-hero-card::-webkit-scrollbar-track,
+.instruction-card::-webkit-scrollbar-track,
+.rating-card::-webkit-scrollbar-track,
+.game-play-card::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.game-hero-card::-webkit-scrollbar-thumb,
+.instruction-card::-webkit-scrollbar-thumb,
+.rating-card::-webkit-scrollbar-thumb,
+.game-play-card::-webkit-scrollbar-thumb {
+  background: var(--play-cool);
+  border-radius: 999px;
+  border: 2px solid var(--play-surface);
+}
+
+.game-hero-card::-webkit-scrollbar-thumb:hover,
+.instruction-card::-webkit-scrollbar-thumb:hover,
+.rating-card::-webkit-scrollbar-thumb:hover,
+.game-play-card::-webkit-scrollbar-thumb:hover {
+  background: #45899f;
+}
+
+@keyframes card-in {
+  from { opacity: 0; transform: translateY(10px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .game-hero-card,
+  .instruction-card,
+  .rating-card,
+  .game-play-card {
+    animation: none;
+  }
+}
+
+/* A round badge above the kicker on the "bookend" cards (start + summary) —
+   gives each stage of the flow a distinct, friendly face instead of the
+   same wall of text three times in a row. */
+.game-hero-icon {
+  display: grid;
+  place-items: center;
+  inline-size: clamp(56px, 10vw, 76px);
+  block-size: clamp(56px, 10vw, 76px);
+  border-radius: 50%;
+  background: var(--play-warm-soft);
+  font-size: clamp(1.75rem, 4vw, 2.4rem);
+  line-height: 1;
+}
+
+.game-hero-icon.is-soft {
+  background: var(--play-cool-soft);
+}
+
+/* The guidance text a teacher reads before starting — set apart from the
+   title so it reads as "instructions", not as more copy about the game. */
+.teacher-note {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  inline-size: 100%;
+  padding: clamp(0.85rem, 2.5vw, 1.25rem);
+  border-radius: 18px;
+  background: var(--play-warm-soft);
+  border: 1px dashed rgba(246, 163, 92, 0.55);
+}
+
+.teacher-note-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--play-warm);
+  text-transform: uppercase;
+}
+
+.rating-meta {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: rgba(51, 64, 59, 0.65);
+}
+
+.teacher-note-field {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  inline-size: min(560px, 92vw);
+}
+
+.teacher-note-field textarea {
+  inline-size: 100%;
+  padding: 0.75rem 1rem;
+  font: inherit;
+  font-size: 1rem;
+  border-radius: 16px;
+  border: 2px solid rgba(51, 64, 59, 0.15);
+  background: #fff;
+  resize: vertical;
+  transition: border-color 150ms;
+}
+
+.teacher-note-field textarea:focus {
+  outline: none;
+  border-color: var(--play-cool);
+}
+
+.game-submit-btn-lg {
+  min-block-size: 72px;
+  padding: 0 3rem;
+  font-size: 1.3rem;
+}
+
+/* ── Rating stage — reskin the shared RatingBar to the warm play palette
+   instead of the cool teacher tokens it was built for, since this is the
+   one place it's rendered inside a child-facing surface. ──────────────── */
+.rating-card {
+  --color-present: var(--play-correct);
+  --color-present-soft: #e3f4ec;
+  --color-partial: #c47a2e;
+  --color-partial-soft: #fdf0e0;
+  --color-absent: var(--play-wrong);
+  --color-absent-soft: #fbe9e6;
+  --color-border: rgba(51, 64, 59, 0.18);
+  --color-card: #fff;
+  --color-muted-foreground: rgba(51, 64, 59, 0.55);
+}
+
+.game-play-card {
+  inline-size: min(1080px, 96vw);
+  max-block-size: min(78dvh, 720px);
+  /* Plain `center` on an overflowing scroll container is the classic flexbox
+     trap: browsers center against the untruncated content box, so the start
+     of the content ends up scrolled past the container's edge and can never
+     be scrolled back into view — which is what was pushing the submit button
+     to render over the row above it. `safe center` centers only while
+     everything fits, and falls back to start-alignment (nothing clipped,
+     nothing unreachable) the moment content is taller than the card. */
+  justify-content: safe center;
+}
+
+.game-hero-card h1,
+.instruction-card h1,
+.rating-card h1 {
+  margin: 0;
+  font-size: clamp(1.5rem, 4vw, 2.4rem);
+  line-height: 1.25;
+}
+
+.rating-card h2 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: rgba(51, 64, 59, 0.7);
+}
+
+.game-hero-card p,
+.instruction-card p,
+.rating-card p {
+  margin: 0;
+  max-inline-size: 46ch;
+  font-size: clamp(1rem, 2vw, 1.15rem);
+  color: rgba(51, 64, 59, 0.75);
+}
+
+.game-instruction-pill {
+  padding: 0.65rem 1.4rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.85);
+  font-size: clamp(1rem, 2.2vw, 1.3rem);
+  font-weight: 600;
+  box-shadow: 0 6px 18px -12px rgba(51, 64, 59, 0.5);
+}
+
+.game-play-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.game-replay {
+  inline-size: 48px;
+  block-size: 48px;
+  min-block-size: 48px;
+  padding: 0;
+  border-radius: 50%;
+  font-size: 1.2rem;
+  display: grid;
+  place-items: center;
+}
+
+/* ── Controls ───────────────────────────────────────────────────────────── */
+
+.game-submit-btn {
+  min-block-size: 64px;
+  padding: 0 2.25rem;
+  border: 0;
+  border-radius: 999px;
+  background: var(--play-warm);
+  color: #fff;
+  font: inherit;
+  font-size: 1.15rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 150ms var(--play-ease), filter 150ms;
+}
+
+.game-submit-btn:hover:not(:disabled) {
+  filter: brightness(1.04);
+}
+
+.game-submit-btn:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.game-submit-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.game-hero-card > .game-submit-btn,
+.instruction-card > .game-submit-btn,
+.rating-card > .game-submit-btn,
+.game-play-card > .game-submit-btn {
+  flex-shrink: 0;
+}
+
+.replay-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-block-size: 52px;
+  padding: 0 1.5rem;
+  border: 2px solid var(--play-cool);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--play-cool);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 150ms var(--play-ease), background 150ms;
+}
+
+.replay-button:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+.replay-button:disabled {
+  opacity: 0.4;
+}
+
+/* The prompt indicator — pulses only while audio is actually playing, so it
+   reports state rather than decorating; a slow static ring the rest of the
+   time gives the card a focal point without implying motion. */
+.sound-orb {
+  display: grid;
+  place-items: center;
+  inline-size: clamp(84px, 16vw, 104px);
+  block-size: clamp(84px, 16vw, 104px);
+  border-radius: 50%;
+  background: var(--play-cool-soft);
+  box-shadow: 0 0 0 10px rgba(91, 155, 181, 0.12);
+}
+
+.sound-orb span {
+  inline-size: 32px;
+  block-size: 32px;
+  border-radius: 50%;
+  background: var(--play-cool);
+}
+
+.sound-orb.is-playing {
+  animation: play-pulse 1.1s ease-in-out infinite;
+}
+
+@keyframes play-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(91, 155, 181, 0.4); }
+  50% { box-shadow: 0 0 0 18px rgba(91, 155, 181, 0); }
+}
+
+/* ── Feedback ───────────────────────────────────────────────────────────── */
+
+.feedback-mark {
+  display: grid;
+  place-items: center;
+  inline-size: clamp(120px, 26vw, 190px);
+  block-size: clamp(120px, 26vw, 190px);
+  border-radius: 50%;
+  font-size: clamp(4rem, 12vw, 7rem);
+  font-weight: 700;
+  line-height: 1;
+  color: #fff;
+  animation: mark-pop 420ms var(--play-ease) both;
+}
+
+.feedback-correct-mark { background: var(--play-correct); }
+.feedback-wrong-mark { background: var(--play-wrong); }
+.feedback-next-mark { background: var(--play-cool); }
+
+@keyframes mark-pop {
+  from { transform: scale(0.4); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.feedback p {
+  font-weight: 600;
+}
+
+/* A brief shake on a wrong answer — short enough to read as "not that one",
+   never long enough to feel like a reprimand. */
+.shake {
+  animation: shake 400ms var(--play-ease);
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-9px); }
+  75% { transform: translateX(9px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shake,
+  .sound-orb.is-playing,
+  .feedback-mark,
+  .confetti-piece {
+    animation: none !important;
+  }
+}
+
+/* ── Confetti ───────────────────────────────────────────────────────────── */
+
+.confetti-burst {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.confetti-piece {
+  position: absolute;
+  inset-block-start: -12px;
+  inline-size: 10px;
+  block-size: 16px;
+  border-radius: 2px;
+  animation: confetti-fall 1.4s var(--play-ease) forwards;
+}
+
+@keyframes confetti-fall {
+  to {
+    transform: translateY(105vh) rotate(540deg);
+    opacity: 0;
+  }
+}
+
+/* ── Game option cards ──────────────────────────────────────────────────── */
+
+.game-image-card {
+  position: relative;
+  border: 4px solid transparent;
+  border-radius: 24px;
+  background: #fff;
+  padding: 0.5rem;
+  cursor: pointer;
+  transition: transform 150ms var(--play-ease), border-color 150ms, box-shadow 150ms;
+  box-shadow: 0 10px 24px -18px rgba(51, 64, 59, 0.6);
+}
+
+@media (hover: hover) {
+  .game-image-card:hover:not(:disabled) {
+    transform: translateY(-3px) scale(1.03);
+    box-shadow: 0 16px 28px -16px rgba(51, 64, 59, 0.5);
+  }
+}
+
+.game-image-card:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+.game-image-card[aria-pressed='true'],
+.game-image-card.is-selected {
+  border-color: var(--play-cool);
+}
+
+.game-image-card-frame {
+  display: block;
+  inline-size: 100%;
+  border-radius: 18px;
+  overflow: hidden;
+}
+
+.game-image-card-check {
+  position: absolute;
+  inset-block-start: 8px;
+  /* Logical, so the check lands on the reading-side corner in both directions. */
+  inset-inline-end: 8px;
+  display: grid;
+  place-items: center;
+  inline-size: 32px;
+  block-size: 32px;
+  border-radius: 50%;
+  background: var(--play-cool);
+  color: #fff;
+  font-weight: 700;
+}
+
+.game-slot {
+  display: grid;
+  place-items: center;
+  min-inline-size: 110px;
+  min-block-size: 110px;
+  border: 3px dashed rgba(51, 64, 59, 0.25);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.6);
+}
+
+.game-tap-pad {
+  border-radius: 24px;
+  border: 5px solid transparent;
+  box-shadow: 0 10px 20px -14px rgba(51, 64, 59, 0.6);
+  transition: transform 150ms var(--play-ease), box-shadow 150ms;
+}
+
+.game-tap-pad:active:not(:disabled) {
+  transform: scale(0.93);
+  box-shadow: 0 4px 10px -8px rgba(51, 64, 59, 0.6);
+}
+
+/* ── Drag & drop ────────────────────────────────────────────────────────── */
+/* Additive to tap-to-select: an item being dragged shrinks in place to show
+   it has been "picked up", its floating ghost (`.game-drag-ghost`) tracks the
+   pointer, and whatever drop zone sits under the ghost lights up so a child
+   sees exactly where letting go will land it. */
+
+.is-draggable {
+  touch-action: none;
+  cursor: grab;
+}
+
+.is-dragging {
+  opacity: 0.35;
+  transform: scale(0.94);
+}
+
+.game-drag-ghost {
+  position: fixed;
+  z-index: 50;
+  pointer-events: none;
+  border-radius: 16px;
+  box-shadow: 0 20px 34px -14px rgba(51, 64, 59, 0.55);
+  transform: scale(1.08) rotate(-2deg);
+  transition: transform 120ms var(--play-ease);
+}
+
+.is-drop-target {
+  transition: transform 150ms var(--play-ease), border-color 150ms, background 150ms;
+}
+
+.is-drop-target.is-drag-over {
+  border-color: var(--play-cool) !important;
+  background: var(--play-cool-soft);
+  transform: scale(1.05);
+}
+
+/* A drop that lands successfully gets a quick, satisfying pop. */
+.drop-landed {
+  animation: drop-pop 260ms var(--play-ease);
+}
+
+@keyframes drop-pop {
+  0% { transform: scale(0.85); }
+  60% { transform: scale(1.08); }
+  100% { transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .game-drag-ghost,
+  .is-drop-target.is-drag-over,
+  .drop-landed {
+    transition: none;
+    animation: none;
+  }
+}
+
+/* ── Hotspot stage ──────────────────────────────────────────────────────── */
+/* Referenced by HotspotImage but never styled anywhere, so the tap surface
+   collapsed to zero size and the whole game type rendered blank. */
+
+.hotspot-stage {
+  position: relative;
+  inline-size: min(720px, 92vw);
+  block-size: min(60dvh, 520px);
+  border-radius: 24px;
+  overflow: hidden;
+  cursor: pointer;
+  box-shadow: 0 10px 24px -18px rgba(51, 64, 59, 0.6);
+  border: 4px solid #fff;
+}
+
+.hotspot-hint {
+  position: absolute;
+  inset-block-end: 12px;
+  inset-inline-start: 50%;
+  transform: translateX(-50%);
+  padding: 0.4rem 1.1rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.88);
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--play-cool);
+  box-shadow: 0 6px 16px -10px rgba(51, 64, 59, 0.5);
+}

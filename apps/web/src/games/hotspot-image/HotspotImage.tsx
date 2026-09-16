@@ -25,14 +25,7 @@ export function HotspotImage({ config, disabled, onAnswer }: GameComponentProps<
     <div
       ref={ref}
       onClick={(e) => handle(e.clientX, e.clientY)}
-      style={{
-        position: 'relative',
-        inlineSize: 'min(720px, 88vw)',
-        aspectRatio: '1 / 1',
-        borderRadius: 16,
-        overflow: 'hidden',
-        cursor: disabled ? 'default' : 'crosshair',
-      }}
+      className="hotspot-stage"
     >
       <img
         src={config.imageUrl}
@@ -40,21 +33,7 @@ export function HotspotImage({ config, disabled, onAnswer }: GameComponentProps<
         draggable={false}
         style={{ inlineSize: '100%', blockSize: '100%', objectFit: 'cover', display: 'block' }}
       />
-      {config.targets.map((t) => (
-        <span
-          key={t.id}
-          aria-hidden
-          style={{
-            position: 'absolute',
-            insetInlineStart: `${t.x * 100}%`,
-            insetBlockStart: `${t.y * 100}%`,
-            inlineSize: `${t.width * 100}%`,
-            blockSize: `${t.height * 100}%`,
-            border: '2px dashed rgba(255,255,255,0.35)',
-            borderRadius: 8,
-          }}
-        />
-      ))}
+      <span className="hotspot-hint" aria-hidden="true">חפשו בתמונה</span>
     </div>
   );
 }

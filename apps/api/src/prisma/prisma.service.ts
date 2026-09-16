@@ -1,8 +1,16 @@
 import { Injectable, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 
-/** Models that carry a kindergartenId and must be tenant-scoped (§9.2). */
-const TENANT_MODELS = new Set(['Child', 'Session']);
+/**
+ * Models that carry a kindergartenId and must be tenant-scoped (§9.2).
+ *
+ * M10 §3 added SubdomainResult. Until then the only thing keeping one
+ * kindergarten's results out of another's reports was every report query
+ * remembering to write `session: { kindergartenId }` by hand — one forgotten
+ * clause away from a cross-tenant leak, in the module most likely to grow new
+ * queries.
+ */
+const TENANT_MODELS = new Set(['Child', 'Session', 'SubdomainResult']);
 
 /**
  * A normal Prisma client whose reads/updates/deletes on tenant-owned models are

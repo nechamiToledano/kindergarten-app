@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: kga-api
+    runtime: node
+    plan: free
+    region: frankfurt
+    buildCommand: pnpm install --frozen-lockfile && pnpm --filter @kga/api prisma:generate && pnpm --filter @kga/api build
+    startCommand: pnpm --filter @kga/api prisma:deploy && pnpm --filter @kga/api start:prod
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_ACCESS_SECRET
+        sync: false
+      - key: JWT_REFRESH_SECRET
+        sync: false
+      - key: JWT_ACCESS_TTL
+        sync: false
+      - key: JWT_REFRESH_TTL
+        sync: false
+      - key: STORAGE_DRIVER
+        value: static
+      - key: CDN_BASE_URL
+        sync: false

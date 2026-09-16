@@ -1,137 +1,179 @@
 @import 'tailwindcss';
 
-/* Base tokens. M9 re-skin: ported the palette from a Tailwind/shadcn teacher
-   dashboard reference (warm coral/navy, soft neutral surfaces) onto the
-   product's existing token names, so every screen that already reads
-   var(--accent) etc. picks up the new look with no markup changes. Same
-   split as before: one warm coral brand (--accent) shared by teacher and
-   child surfaces, a second accent hue (--accent-2, sky) reserved for
-   in-game selection state, semantic colours (--success/--warning/--danger,
-   defined in app.css) kept clear of every brand hue. `@theme inline` below
-   exposes the same tokens to Tailwind utilities / the shadcn Button. */
-:root {
-  --text: #82909b;
-  --text-h: #263a4a;
-  --bg: #f8fafb;
-  --surface: #ffffff;
-  --border: #e6ebef;
-  --code-bg: #eef1f4;
+/* `packages/ui` lives outside this app's root, so Tailwind has to be told to
+   scan it — otherwise every class the shared components use is tree-shaken away
+   and the design system silently renders unstyled. */
+@source '../../../packages/ui/src';
 
-  /* coral — primary brand + teacher-shell action colour */
-  --accent: #ff806c;
-  --accent-bg: #ffebe6;
-  --accent-border: #ffd0c8;
+/*
+ * ============================================================================
+ * Design tokens — M10.
+ * ============================================================================
+ *
+ * One palette, defined once. The system previously carried two competing token
+ * sets (a coral/navy pair in this file, a second amber/mint set in app.css) that
+ * were re-skinned twice without either being retired, so the same semantic role
+ * had different colours depending on which stylesheet a screen happened to read.
+ *
+ * The direction here is the one the redesign settled on: a warm off-white
+ * canvas and a sage-pine primary. Calm and professional — this is a tool a
+ * teacher uses in front of parents, not a children's app. The child-facing play
+ * surface is the one place that is allowed to be brighter, and it keeps its own
+ * layer in app.css.
+ *
+ * Rating colours are their own hues, never tints of the brand, so "קיים" can
+ * never be mistaken for a button.
+ */
+@theme {
+  --font-sans: 'Assistant', 'Heebo', 'Segoe UI', system-ui, sans-serif;
+  --font-display: 'Rubik', 'Assistant', 'Segoe UI', system-ui, sans-serif;
 
-  /* sky blue — secondary accent, reserved for in-game selection / info */
-  --accent-2: #5592c6;
-  --accent-2-bg: #e5f1f9;
-  --accent-2-border: #b9dced;
+  --color-background: oklch(0.985 0.006 95);
+  --color-foreground: oklch(0.26 0.012 75);
+  --color-card: oklch(1 0 0);
+  --color-card-foreground: oklch(0.26 0.012 75);
 
-  --social-bg: rgba(244, 243, 236, 0.5);
-  --shadow:
-    rgba(31, 36, 48, 0.08) 0 10px 15px -3px, rgba(31, 36, 48, 0.04) 0 4px 6px -2px;
+  /* Sage / pine — growth without being childish. */
+  --color-primary: oklch(0.52 0.062 168);
+  --color-primary-foreground: oklch(0.985 0.01 150);
+  --color-primary-hover: oklch(0.46 0.062 168);
 
-  --display: 'Rubik', 'Segoe UI', system-ui, sans-serif;
-  --sans: 'Heebo', 'Segoe UI', system-ui, sans-serif;
-  --mono: ui-monospace, Consolas, monospace;
+  --color-secondary: oklch(0.965 0.008 110);
+  --color-secondary-foreground: oklch(0.32 0.014 80);
+  --color-muted: oklch(0.965 0.008 110);
+  --color-muted-foreground: oklch(0.52 0.014 90);
+  --color-accent: oklch(0.95 0.024 165);
+  --color-accent-foreground: oklch(0.38 0.05 168);
 
-  font: 16px/155% var(--sans);
-  letter-spacing: 0;
-  color-scheme: light dark;
-  color: var(--text);
-  background: var(--bg);
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  --color-border: oklch(0.912 0.008 100);
+  --color-input: oklch(0.912 0.008 100);
+  --color-ring: oklch(0.52 0.062 168);
+  --color-destructive: oklch(0.585 0.17 28);
+  --color-destructive-foreground: oklch(0.99 0.01 30);
+
+  /* Rating semantics — קיים / קיים חלקית / לא קיים. */
+  --color-present: oklch(0.6 0.11 158);
+  --color-present-soft: oklch(0.955 0.03 160);
+  --color-partial: oklch(0.62 0.1 72);
+  --color-partial-soft: oklch(0.96 0.04 85);
+  --color-absent: oklch(0.62 0.15 30);
+  --color-absent-soft: oklch(0.955 0.028 35);
+  --color-info: oklch(0.58 0.09 235);
+  --color-info-soft: oklch(0.955 0.03 235);
+
+  --color-sidebar: oklch(0.975 0.008 110);
+  --color-sidebar-foreground: oklch(0.32 0.012 80);
+  --color-sidebar-border: oklch(0.91 0.008 100);
+  --color-sidebar-accent: oklch(0.94 0.022 165);
+  --color-sidebar-accent-foreground: oklch(0.36 0.05 168);
+
+  --color-chart-1: oklch(0.55 0.08 168);
+  --color-chart-2: oklch(0.65 0.09 205);
+  --color-chart-3: oklch(0.72 0.11 72);
+  --color-chart-4: oklch(0.64 0.14 32);
+  --color-chart-5: oklch(0.55 0.03 260);
+
+  --radius-sm: 0.5rem;
+  --radius-md: 0.7rem;
+  --radius-lg: 0.85rem;
+  --radius-xl: 1.2rem;
+  --radius-2xl: 1.5rem;
+
+  --shadow-card: 0 1px 2px oklch(0.26 0.012 75 / 0.05), 0 1px 3px oklch(0.26 0.012 75 / 0.04);
+  --shadow-float: 0 12px 28px -12px oklch(0.26 0.012 75 / 0.22);
+
+  --ease-out-soft: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-@media (prefers-color-scheme: dark) {
+@layer base {
   :root {
-    --text: #a3aeba;
-    --text-h: #f1efe9;
-    --bg: #161a22;
-    --surface: #1e2430;
-    --border: #2e3542;
-    --code-bg: #1f242f;
+    color-scheme: light;
+    /* The redesign is a single, deliberately light surface. A dark variant is a
+       separate design decision, not a free inversion — the rating colours in
+       particular do not survive one unexamined. */
+  }
 
-    --accent: #ff9384;
-    --accent-bg: #3a2a26;
-    --accent-border: #5a4038;
+  * {
+    border-color: var(--color-border);
+  }
 
-    --accent-2: #79aad9;
-    --accent-2-bg: #22303c;
-    --accent-2-border: #3a5266;
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
 
-    --social-bg: rgba(47, 48, 58, 0.5);
-    --shadow:
-      rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
+  body {
+    margin: 0;
+    background: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    font-size: 15px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-display);
+    letter-spacing: -0.01em;
+    font-weight: 600;
+  }
+
+  /* A focus ring that is visible on every surface in the palette, and only for
+     keyboard users — teachers drive this on a touchscreen all day. */
+  :focus-visible {
+    outline: 2px solid var(--color-ring);
+    outline-offset: 2px;
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+    color: inherit;
+  }
+
+  /* Numbers in tables and stat tiles must not jitter as they update. */
+  .tabular {
+    font-variant-numeric: tabular-nums;
   }
 }
 
-@theme inline {
-  --color-background: var(--bg);
-  --color-foreground: var(--text-h);
-  --color-border: var(--border);
-  --color-input: var(--border);
-  --color-ring: var(--accent);
-  --color-primary: var(--accent);
-  --color-primary-foreground: #ffffff;
-  --color-secondary: var(--accent-2-bg);
-  --color-secondary-foreground: var(--accent-2);
-  --color-muted: var(--bg);
-  --color-muted-foreground: var(--text);
-  --color-destructive: var(--danger);
-  --font-sans: var(--sans);
-  --font-display: var(--display);
+@layer utilities {
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-border) transparent;
+  }
+
+  /*
+   * RTL icon handling.
+   *
+   * The known sidebar problem: a directional icon (chevron, arrow) drawn for LTR
+   * points the wrong way in Hebrew, and mirroring the whole row flips glyphs
+   * that must not be mirrored — a magnifier, a clock, a logo. So nothing is
+   * mirrored wholesale. `.flip-rtl` marks the individual icons whose meaning is
+   * direction, and only those turn around.
+   */
+  [dir='rtl'] .flip-rtl {
+    transform: scaleX(-1);
+  }
+
+  .animate-in {
+    animation: fade-up 240ms var(--ease-out-soft) both;
+  }
 }
 
-body {
-  margin: 0;
-  background:
-    radial-gradient(circle at 8% 0%, rgba(224, 96, 47, 0.05), transparent 40%),
-    radial-gradient(circle at 100% 100%, rgba(47, 127, 176, 0.05), transparent 45%),
-    var(--bg);
-}
-
-h1,
-h2,
-h3 {
-  font-family: var(--display);
-  font-weight: 700;
-  color: var(--text-h);
-  text-wrap: balance;
-}
-
-h1 {
-  font-size: clamp(1.75rem, 4vw, 2.5rem);
-  font-weight: 800;
-  letter-spacing: -0.01em;
-  margin: 0 0 0.5rem;
-}
-h2 {
-  font-size: clamp(1.25rem, 2.5vw, 1.55rem);
-  margin: 0 0 0.5rem;
-}
-h3 {
-  font-size: 1.1rem;
-  margin: 0;
-}
-p {
-  margin: 0;
-}
-
-code,
-.counter {
-  font-family: var(--mono);
-  display: inline-flex;
-  border-radius: 4px;
-  color: var(--text-h);
-}
-
-code {
-  font-size: 15px;
-  line-height: 135%;
-  padding: 4px 8px;
-  background: var(--code-bg);
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }

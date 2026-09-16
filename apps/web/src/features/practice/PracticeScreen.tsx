@@ -1,108 +1,111 @@
-import { useEffect, useState } from 'react';
-import type { Child, Domain, Rating, SubdomainForPlay } from '@kga/contracts';
-import { Avatar, PageHeader } from '@kga/ui';
-import { useOutbox } from '../../shared/outbox/OutboxProvider';
-import { GamePlayer, type SubdomainRunResult } from '../sessions/GamePlayer';
+import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router';
+import type { SubdomainForPlay } from '@kga/contracts';
 import {
-  completeSession,
-  createSession,
-  getSubdomainForPlay,
-  listChildren,
-  listDomains,
-  listSubdomains,
-} from '../sessions/api';
+  Avatar,
+  Badge,
+  Button,
+  Card,
+  CardBody,
+  CardHeader,
+  EmptyState,
+  ErrorState,
+  Field,
+  LibraryIcon,
+  Select,
+  Skeleton,
+  Switch,
+} from '@kga/ui';
+import { createSession, getSubdomainForPlay } from '../../shared/api/endpoints';
+import { useChildren, useDomains, useSubdomains } from '../../shared/api/queries';
+import { useOutbox } from '../../shared/outbox/OutboxProvider';
+import { AGE_GROUP_LABELS, GAME_TYPE_LABELS, RATING_LABELS } from '../../shared/format';
+import { GamePlayer, type SubdomainRunResult } from '../sessions/GamePlayer';
 
 type Stage =
   | { kind: 'setup' }
-  | { kind: 'error'; message: string }
   | { kind: 'playing'; subdomain: SubdomainForPlay; sessionId: string | null }
   | { kind: 'done'; result: SubdomainRunResult; subdomainName: string; saved: boolean };
 
-const RATING_LABELS: Record<Rating, string> = {
-  PRESENT: 'קיים',
-  PARTIALLY_PRESENT: 'קיים חלקית',
-  ABSENT: 'לא קיים',
-};
-
 /**
- * M7 §3.3 — free-play mode, mapped onto the existing engine rather than a new
- * screen per game type: any subdomain from any age group, run through the same
- * `GamePlayer` (§8) M2 already built. "שמור תוצאה" defaults off; when on, a
- * `Session` with `mode: PRACTICE` is created so it never shows up in a §12
- * assessment report.
+ * Free play.
+ *
+ * Any game from the catalogue, outside the diagnostic flow. Saving is off by
+ * default and, when on, writes a PRACTICE session — which every report filters
+ * out, so a child replaying a game they enjoy can never move a screening figure.
+ *
+ * This screen used to fall back to a bundled fixture when the catalogue came
+ * back empty, which meant an API failure looked like content. It now says the
+ * catalogue is empty, because that is the fact the teacher needs.
  */
-export function PracticeScreen({ onExit }: { onExit: () => void }) {
+export function PracticeScreen() {
+  const navigate = useNavigate();
   const { queue } = useOutbox();
   const [stage, setStage] = useState<Stage>({ kind: 'setup' });
 
-  const [children, setChildren] = useState<Child[]>([]);
-  const [domains, setDomains] = useState<Domain[]>([]);
-  const [subdomainStubs, setSubdomainStubs] = useState<{ id: string; name: string }[]>([]);
-  const [childId, setChildId] = useState<string>('');
-  const [domainId, setDomainId] = useState<string>('');
-  const [subdomainId, setSubdomainId] = useState<string>('');
+  const [childId, setChildId] = useState('');
+  const [domainId, setDomainId] = useState('');
+  const [subdomainId, setSubdomainId] = useState('');
   const [saveResult, setSaveResult] = useState(false);
+  const [starting, setStarting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    listChildren().then(setChildren).catch(() => setChildren([]));
-    listDomains().then(setDomains).catch(() => setDomains([]));
-  }, []);
+  const childrenQuery = useChildren({ pageSize: 100 });
+  const domainsQuery = useDomains();
+  const subdomainsQuery = useSubdomains({ domainId: domainId || undefined }, !!domainId);
 
-  useEffect(() => {
-    if (!domainId) return setSubdomainStubs([]);
-    listSubdomains(domainId).then(setSubdomainStubs).catch(() => setSubdomainStubs([]));
-  }, [domainId]);
+  const playable = useMemo(
+    () => (subdomainsQuery.data ?? []).filter((item) => item.playable),
+    [subdomainsQuery.data],
+  );
 
   const canSave = saveResult && !!childId;
 
   const start = async () => {
     if (!subdomainId) return;
+    setStarting(true);
+    setError(null);
     try {
       const subdomain = await getSubdomainForPlay(subdomainId);
       let sessionId: string | null = null;
       if (canSave) {
-        const session = await createSession(childId, 'PRACTICE');
+        const session = await createSession({
+          childId,
+          mode: 'PRACTICE',
+          plan: [subdomainId],
+        });
         sessionId = session.id;
       }
       setStage({ kind: 'playing', subdomain, sessionId });
     } catch (err) {
-      setStage({ kind: 'error', message: err instanceof Error ? err.message : 'שגיאה' });
+      setError(err instanceof Error ? err.message : 'המשחק לא נטען');
+    } finally {
+      setStarting(false);
     }
   };
 
   const handleComplete = async (result: SubdomainRunResult) => {
     if (stage.kind !== 'playing') return;
-    const subdomainName = stage.subdomain.name;
-    if (stage.sessionId) {
+    const { subdomain, sessionId } = stage;
+    if (sessionId) {
       await queue({
         clientId: crypto.randomUUID(),
-        sessionId: stage.sessionId,
-        subdomainId: result.subdomainId,
-        subdomainVersionId: stage.subdomain.subdomainVersionId,
+        sessionId,
+        subdomainId: subdomain.id,
+        subdomainVersionId: subdomain.subdomainVersionId,
         attemptsCount: result.attemptsCount,
         rating: result.rating,
         teacherNote: result.teacherNote,
         rawAnswers: result.rawAnswers,
       });
-      try {
-        await completeSession(stage.sessionId);
-      } catch {
-        /* best-effort, same as SessionRunner (§11.5) */
-      }
     }
-    setStage({ kind: 'done', result, subdomainName, saved: !!stage.sessionId });
+    setStage({
+      kind: 'done',
+      result,
+      subdomainName: subdomain.name,
+      saved: !!sessionId,
+    });
   };
-
-  if (stage.kind === 'error') {
-    return (
-      <div className="pad">
-        <p className="error-text">{stage.message}</p>
-        <button type="button" className="btn-primary" onClick={onExit}>
-          חזרה
-        </button>
-      </div>
-    );
-  }
 
   if (stage.kind === 'playing') {
     return (
@@ -115,102 +118,160 @@ export function PracticeScreen({ onExit }: { onExit: () => void }) {
           childInstruction: stage.subdomain.childInstruction,
           gameConfig: stage.subdomain.gameConfig,
         }}
-        onComplete={(r) => void handleComplete(r)}
+        onComplete={handleComplete}
       />
     );
   }
 
   if (stage.kind === 'done') {
     return (
-      <div className="pad summary">
-        <h1>משחק חופשי הסתיים</h1>
-        <div className="card">
-          <p style={{ fontSize: 40 }}>{stage.result.rating === 'PRESENT' ? '🎉' : '👍'}</p>
-          <p>
-            {stage.subdomainName} · {RATING_LABELS[stage.result.rating]}
+      <main className="mx-auto flex min-h-dvh max-w-lg flex-col justify-center gap-4 p-6">
+        <Card className="flex flex-col items-center gap-3 p-6 text-center">
+          <h1 className="font-display text-xl font-semibold">{stage.subdomainName}</h1>
+          <Badge tone="neutral">{RATING_LABELS[stage.result.rating]}</Badge>
+          <p className="text-sm text-muted-foreground">
+            {stage.saved
+              ? 'התוצאה נשמרה כתרגול ולא תיכלל בדוחות האבחון.'
+              : 'התוצאה לא נשמרה — זהו משחק חופשי בלבד.'}
           </p>
-          <p className="muted">
-            {stage.saved ? '✓ נשמר כתרגול (לא נכלל בדוחות האבחון)' : 'תרגול הדגמה — לא נשמר'}
-          </p>
-        </div>
-        <div className="row">
-          <button type="button" className="btn-primary" onClick={() => setStage({ kind: 'setup' })}>
-            עוד סבב
-          </button>
-          <button type="button" className="btn-ghost" onClick={onExit}>
-            חזרה לבית
-          </button>
-        </div>
-      </div>
+          <div className="mt-2 flex flex-wrap justify-center gap-2">
+            <Button onClick={() => setStage({ kind: 'setup' })}>משחק נוסף</Button>
+            <Button variant="ghost" onClick={() => navigate('/')}>
+              חזרה למערכת
+            </Button>
+          </div>
+        </Card>
+      </main>
     );
   }
 
   return (
-    <div className="pad">
-      <PageHeader title="משחקים חופשיים" subtitle="תרגול ללא לחץ — כל תת-תחום, מכל קבוצת גיל" />
+    <main className="mx-auto flex min-h-dvh max-w-lg flex-col justify-center gap-4 p-4 md:p-6">
+      <Card>
+        <CardHeader
+          title="משחק חופשי"
+          description="כל משחק מהקטלוג, ללא קשר לתהליך האבחון"
+          actions={
+            <Button variant="ghost" size="sm" onClick={() => navigate('/')}>
+              יציאה
+            </Button>
+          }
+        />
+        <CardBody className="flex flex-col gap-4">
+          {domainsQuery.isPending && <Skeleton className="h-11 rounded-lg" />}
 
-      <div className="dialog" style={{ inlineSize: 'min(560px, 100%)', boxShadow: 'none', border: '1px solid var(--border)' }}>
-        <label>
-          ילד/ה (אופציונלי — נדרש כדי לשמור תוצאה)
-          <select value={childId} onChange={(e) => setChildId(e.target.value)} className="search-input" style={{ inlineSize: '100%' }}>
-            <option value="">— תרגול הדגמה, ללא שיוך —</option>
-            {children.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.displayName}
-              </option>
-            ))}
-          </select>
-        </label>
+          {domainsQuery.data && domainsQuery.data.length === 0 && (
+            <EmptyState
+              icon={<LibraryIcon />}
+              title="אין תוכן בקטלוג"
+              description="עורכת התוכן צריכה לפרסם משחקים לפני שאפשר לשחק."
+              className="border-0"
+            />
+          )}
 
-        {childId && (
-          <div className="row">
-            <Avatar name={children.find((c) => c.id === childId)?.displayName ?? ''} photoUrl={children.find((c) => c.id === childId)?.photoUrl} />
-          </div>
-        )}
+          {domainsQuery.data && domainsQuery.data.length > 0 && (
+            <>
+              <Field label="תחום" htmlFor="practice-domain">
+                <Select
+                  id="practice-domain"
+                  value={domainId}
+                  onChange={(event) => {
+                    setDomainId(event.target.value);
+                    setSubdomainId('');
+                  }}
+                >
+                  <option value="">בחרו תחום</option>
+                  {domainsQuery.data.map((domain) => (
+                    <option key={domain.id} value={domain.id}>
+                      {domain.name}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
 
-        <label>
-          תחום
-          <select value={domainId} onChange={(e) => { setDomainId(e.target.value); setSubdomainId(''); }} className="search-input" style={{ inlineSize: '100%' }}>
-            <option value="">בחרו תחום</option>
-            {domains.map((d) => (
-              <option key={d.id} value={d.id}>
-                {d.name}
-              </option>
-            ))}
-          </select>
-        </label>
+              {domainId && subdomainsQuery.isPending && <Skeleton className="h-11 rounded-lg" />}
 
-        <label>
-          תת-תחום
-          <select value={subdomainId} onChange={(e) => setSubdomainId(e.target.value)} className="search-input" style={{ inlineSize: '100%' }} disabled={!domainId}>
-            <option value="">בחרו תת-תחום</option>
-            {subdomainStubs.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-          </select>
-        </label>
+              {domainId && subdomainsQuery.data && (
+                <Field
+                  label="משחק"
+                  htmlFor="practice-subdomain"
+                  hint={
+                    playable.length === 0
+                      ? 'אין משחקים שפורסמו בתחום הזה.'
+                      : `${playable.length} משחקים זמינים`
+                  }
+                >
+                  <Select
+                    id="practice-subdomain"
+                    value={subdomainId}
+                    onChange={(event) => setSubdomainId(event.target.value)}
+                    disabled={playable.length === 0}
+                  >
+                    <option value="">בחרו משחק</option>
+                    {playable.map((subdomain) => (
+                      <option key={subdomain.id} value={subdomain.id}>
+                        {subdomain.name} · {GAME_TYPE_LABELS[subdomain.gameType] ?? subdomain.gameType}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+              )}
 
-        <label className="mode-toggle" style={{ flexDirection: 'row-reverse', justifyContent: 'flex-end' }}>
-          <input
-            type="checkbox"
-            checked={saveResult}
-            onChange={(e) => setSaveResult(e.target.checked)}
-            disabled={!childId}
-          />
-          שמירת תוצאה (מסומן כתרגול, לא נכלל בדוחות)
-        </label>
+              <div className="rounded-xl bg-secondary/50 p-3">
+                <Switch
+                  checked={saveResult}
+                  onChange={setSaveResult}
+                  label="שמירת התוצאה עבור ילד/ה"
+                />
+                {saveResult && (
+                  <div className="mt-3">
+                    <Field label="ילד/ה" htmlFor="practice-child">
+                      <Select
+                        id="practice-child"
+                        value={childId}
+                        onChange={(event) => setChildId(event.target.value)}
+                      >
+                        <option value="">בחרו ילד/ה</option>
+                        {childrenQuery.data?.items.map((child) => (
+                          <option key={child.id} value={child.id}>
+                            {child.displayName} · {AGE_GROUP_LABELS[child.currentAgeGroup]}
+                          </option>
+                        ))}
+                      </Select>
+                    </Field>
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      תוצאות תרגול נשמרות בנפרד ואינן נכללות באף דוח אבחון.
+                    </p>
+                  </div>
+                )}
+              </div>
 
-        <div className="row">
-          <button type="button" className="btn-primary" disabled={!subdomainId} onClick={() => void start()}>
-            התחלה
-          </button>
-          <button type="button" className="btn-ghost" onClick={onExit}>
-            ביטול
-          </button>
-        </div>
-      </div>
-    </div>
+              {childId && childrenQuery.data && (
+                <div className="flex items-center gap-2.5 text-sm">
+                  <Avatar
+                    name={
+                      childrenQuery.data.items.find((c) => c.id === childId)?.displayName ?? ''
+                    }
+                    size={28}
+                  />
+                  {childrenQuery.data.items.find((c) => c.id === childId)?.displayName}
+                </div>
+              )}
+
+              {error && <ErrorState message={error} />}
+
+              <Button
+                size="lg"
+                loading={starting}
+                disabled={!subdomainId || (saveResult && !childId)}
+                onClick={() => void start()}
+              >
+                מתחילים לשחק
+              </Button>
+            </>
+          )}
+        </CardBody>
+      </Card>
+    </main>
   );
 }

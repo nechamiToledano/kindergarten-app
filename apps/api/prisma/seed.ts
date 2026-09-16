@@ -2,7 +2,7 @@ import { PrismaClient } from '@prisma/client';
 import * as argon2 from 'argon2';
 import { GameConfigSchema } from '@kga/contracts';
 import { createDefaultRegistry } from '@kga/game-engine';
-import { CONTENT } from './content.js';
+import { CONTENT, domainMetaFor } from './content.js';
 
 const prisma = new PrismaClient();
 const registry = createDefaultRegistry();
@@ -67,33 +67,45 @@ async function main(): Promise<void> {
     });
   }
 
-  let domainCount = 0;
+  // M10 §1 — a domain name that appears under several age groups is one row.
+  // Upserting by slug lands on exactly the rows the migration folded the old
+  // AgeGroupDomain table into; keying by the catalogue's own per-age-group ids
+  // would fork the catalogue on the first re-seed.
+  const domainIdBySlug = new Map<string, string>();
   let subdomainCount = 0;
 
   for (const ageGroup of CONTENT) {
     for (const domainSpec of ageGroup.domains) {
-      const domain = await prisma.ageGroupDomain.upsert({
-        where: { id: domainSpec.id },
-        update: { name: domainSpec.name, ageGroup: ageGroup.ageGroup, orderIndex: domainSpec.orderIndex },
+      const meta = domainMetaFor(domainSpec.name);
+      const domain = await prisma.domain.upsert({
+        where: { slug: meta.slug },
+        update: { name: domainSpec.name, icon: meta.icon, description: meta.description },
         create: {
-          id: domainSpec.id,
-          ageGroup: ageGroup.ageGroup,
+          slug: meta.slug,
           name: domainSpec.name,
+          icon: meta.icon,
+          description: meta.description,
           orderIndex: domainSpec.orderIndex,
         },
       });
-      domainCount += 1;
+      domainIdBySlug.set(meta.slug, domain.id);
 
       for (const [index, sub] of domainSpec.subdomains.entries()) {
         const config = GameConfigSchema.parse(sub.config);
         // Content-validation guardrail (§15) — every seeded config parses under its plugin schema.
         registry.get(config.gameType).configSchema.parse(config);
 
+        // `level` is deliberately not set from the catalogue: nothing in it grades
+        // difficulty, and inventing a grade would put a number in front of a
+        // teacher that no one chose. Seeded content sits at level 1 until a
+        // content editor grades it in the library.
         await prisma.subdomain.upsert({
           where: { id: sub.id },
           update: {
+            domainId: domain.id,
             name: sub.name,
             orderIndex: index,
+            ageGroups: [ageGroup.ageGroup],
             teacherInstruction: sub.teacherInstruction,
             childInstruction: sub.childInstruction,
             gameType: config.gameType,
@@ -104,6 +116,7 @@ async function main(): Promise<void> {
             domainId: domain.id,
             name: sub.name,
             orderIndex: index,
+            ageGroups: [ageGroup.ageGroup],
             teacherInstruction: sub.teacherInstruction,
             childInstruction: sub.childInstruction,
             gameType: config.gameType,
@@ -131,7 +144,7 @@ async function main(): Promise<void> {
   }
 
   console.log(
-    `Seed complete: ${domainCount} domains, ${subdomainCount} subdomains across ${CONTENT.length} age groups.\n` +
+    `Seed complete: ${domainIdBySlug.size} domains, ${subdomainCount} subdomains across ${CONTENT.length} age groups.\n` +
       'Login: teacher@demo.dev / editor@demo.dev  (password123)',
   );
 }

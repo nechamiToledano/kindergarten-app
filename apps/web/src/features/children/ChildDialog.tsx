@@ -1,43 +1,48 @@
-import { useState } from 'react';
-import type { Child } from '@kga/contracts';
-import { Avatar } from '@kga/ui';
-import { createChild, updateChild, uploadPhoto } from '../sessions/api';
+import { useRef, useState } from 'react';
+import type { Child, ChildListItem } from '@kga/contracts';
+import { Avatar, Button, Dialog, ErrorState, Field, Input, Switch } from '@kga/ui';
+import { uploadPhoto } from '../../shared/api/endpoints';
+import { useCreateChild, useDeleteChild, useUpdateChild } from '../../shared/api/queries';
 
-/** Spec §9 bands, mirrored client-side just to show the derived group live (§3.2). */
-function ageGroupLabel(birthDate: string): string {
-  if (!birthDate) return '';
-  const age = Math.floor(
-    (Date.now() - new Date(birthDate).getTime()) / (1000 * 60 * 60 * 24 * 365.25),
-  );
-  if (age <= 3) return 'קבוצת גיל: 3-4';
-  if (age === 4) return 'קבוצת גיל: 4-5';
-  return 'קבוצת גיל: 5-6';
-}
-
-/** M7 §3.2 — add/edit a child in a dialog rather than a separate page. */
+/**
+ * Add or edit a child.
+ *
+ * The photo uploads through the same media endpoint the content pipeline uses,
+ * and only the returned URL is stored — the file itself never sits in component
+ * state waiting to be lost on a re-render.
+ */
 export function ChildDialog({
   child,
   onClose,
   onSaved,
 }: {
-  child: Child | null;
+  child: Child | ChildListItem | null;
   onClose: () => void;
-  onSaved: (child: Child) => void;
+  onSaved: (name: string, created: boolean) => void;
 }) {
+  const editing = child !== null;
   const [displayName, setDisplayName] = useState(child?.displayName ?? '');
   const [birthDate, setBirthDate] = useState(child?.birthDate ?? '');
   const [photoUrl, setPhotoUrl] = useState<string | null>(child?.photoUrl ?? null);
+  const [watch, setWatch] = useState(child?.watch ?? false);
   const [uploading, setUploading] = useState(false);
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const fileInput = useRef<HTMLInputElement>(null);
 
-  const handlePhoto = async (file: File | undefined) => {
-    if (!file) return;
+  const createChild = useCreateChild();
+  const updateChild = useUpdateChild();
+  const deleteChild = useDeleteChild();
+
+  const valid = displayName.trim().length > 0 && /^\d{4}-\d{2}-\d{2}$/.test(birthDate);
+  const saving = createChild.isPending || updateChild.isPending;
+
+  const handlePhoto = async (file: File) => {
     setUploading(true);
     setError(null);
     try {
-      const result = await uploadPhoto(file);
-      setPhotoUrl(result.url);
+      const { url } = await uploadPhoto(file);
+      setPhotoUrl(url);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'העלאת התמונה נכשלה');
     } finally {
@@ -45,72 +50,150 @@ export function ChildDialog({
     }
   };
 
-  const submit = async () => {
-    if (!displayName.trim() || !birthDate) return;
-    setSaving(true);
+  const submit = () => {
+    if (!valid) return;
     setError(null);
-    try {
-      const body = { displayName: displayName.trim(), birthDate, photoUrl };
-      const saved = child ? await updateChild(child.id, body) : await createChild(body);
-      onSaved(saved);
-    } catch (err) {
+    const body = { displayName: displayName.trim(), birthDate, photoUrl, watch };
+    const onError = (err: unknown) =>
       setError(err instanceof Error ? err.message : 'השמירה נכשלה');
-    } finally {
-      setSaving(false);
+
+    if (editing) {
+      updateChild.mutate(
+        { id: child.id, body },
+        { onSuccess: () => onSaved(body.displayName, false), onError },
+      );
+    } else {
+      createChild.mutate(body, {
+        onSuccess: () => onSaved(body.displayName, true),
+        onError,
+      });
     }
   };
 
+  if (confirmDelete && editing) {
+    return (
+      <Dialog
+        open
+        onClose={() => setConfirmDelete(false)}
+        title={`הסרת ${child.displayName}?`}
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setConfirmDelete(false)}>
+              ביטול
+            </Button>
+            <Button
+              variant="danger"
+              loading={deleteChild.isPending}
+              onClick={() =>
+                deleteChild.mutate(child.id, {
+                  onSuccess: () => onSaved(child.displayName, false),
+                  onError: (err) =>
+                    setError(err instanceof Error ? err.message : 'ההסרה נכשלה'),
+                })
+              }
+            >
+              הסרה
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm text-muted-foreground">
+          הרשומה אינה נמחקת לצמיתות — האבחונים וההיסטוריה נשמרים, והילד/ה מוסר/ת מהרשימה
+          הפעילה. שחזור אפשרי דרך צוות התמיכה.
+        </p>
+        {error && <ErrorState className="mt-3" message={error} />}
+      </Dialog>
+    );
+  }
+
   return (
-    <div className="dialog-backdrop" onClick={onClose}>
-      <div className="dialog" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal>
-        <h2>{child ? 'עריכת ילד/ה' : 'הוספת ילד/ה'}</h2>
-
-        <div className="photo-picker">
-          <Avatar name={displayName || '?'} photoUrl={photoUrl} size={72} />
-          <label className="btn-ghost" style={{ cursor: 'pointer' }}>
-            {uploading ? 'מעלה…' : photoUrl ? 'החלפת תמונה' : 'הוספת תמונה'}
-            <input
-              type="file"
-              accept="image/png,image/jpeg,image/webp"
-              hidden
-              disabled={uploading}
-              onChange={(e) => void handlePhoto(e.target.files?.[0])}
-            />
-          </label>
-        </div>
-
-        <label>
-          שם
-          <input
-            type="text"
-            value={displayName}
-            onChange={(e) => setDisplayName(e.target.value)}
-            placeholder="שם הילד/ה"
-          />
-        </label>
-
-        <label>
-          תאריך לידה
-          <input type="date" value={birthDate} onChange={(e) => setBirthDate(e.target.value)} />
-        </label>
-        {birthDate && <p className="muted">{ageGroupLabel(birthDate)}</p>}
-
-        {error && <p className="error-text">{error}</p>}
-
-        <div className="row">
-          <button
-            type="button"
-            className="btn-primary"
-            disabled={saving || uploading || !displayName.trim() || !birthDate}
-            onClick={() => void submit()}
-          >
-            {saving ? 'שומר…' : 'שמירה'}
-          </button>
-          <button type="button" className="btn-ghost" onClick={onClose}>
+    <Dialog
+      open
+      onClose={onClose}
+      title={editing ? 'עריכת פרופיל' : 'הוספת ילד/ה'}
+      footer={
+        <>
+          {editing && (
+            <Button
+              variant="ghost"
+              className="me-auto text-destructive"
+              onClick={() => setConfirmDelete(true)}
+            >
+              הסרה מהגן
+            </Button>
+          )}
+          <Button variant="ghost" onClick={onClose}>
             ביטול
-          </button>
+          </Button>
+          <Button onClick={submit} loading={saving} disabled={!valid}>
+            שמירה
+          </Button>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-4">
+        <div className="flex items-center gap-4">
+          <Avatar name={displayName || '—'} photoUrl={photoUrl} size={56} />
+          <div className="flex flex-col gap-1">
+            <Button
+              size="sm"
+              variant="outline"
+              loading={uploading}
+              onClick={() => fileInput.current?.click()}
+            >
+              {photoUrl ? 'החלפת תמונה' : 'הוספת תמונה'}
+            </Button>
+            {photoUrl && (
+              <button
+                type="button"
+                className="text-xs text-muted-foreground hover:text-destructive"
+                onClick={() => setPhotoUrl(null)}
+              >
+                הסרת התמונה
+              </button>
+            )}
+          </div>
+          <input
+            ref={fileInput}
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            hidden
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              if (file) void handlePhoto(file);
+              event.target.value = '';
+            }}
+          />
         </div>
+
+        <Field label="שם" htmlFor="child-name">
+          <Input
+            id="child-name"
+            value={displayName}
+            onChange={(event) => setDisplayName(event.target.value)}
+            placeholder="שם מלא"
+            autoComplete="off"
+          />
+        </Field>
+
+        <Field
+          label="תאריך לידה"
+          htmlFor="child-birth"
+          hint="קובע את קבוצת הגיל ואת התוכן שיוצע באבחון."
+        >
+          <Input
+            id="child-birth"
+            type="date"
+            value={birthDate}
+            onChange={(event) => setBirthDate(event.target.value)}
+            max={new Date().toISOString().slice(0, 10)}
+          />
+        </Field>
+
+        <Switch checked={watch} onChange={setWatch} label="סימון למעקב מיוחד" />
+
+        {error && <ErrorState message={error} />}
       </div>
-    </div>
+    </Dialog>
   );
 }

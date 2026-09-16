@@ -1,4 +1,5 @@
 import type { AuthResult } from '@kga/contracts';
+import { type ApiErrorBody, friendlyErrorMessage, networkErrorMessage } from './errors';
 
 /**
  * Thin fetch wrapper — the single place auth, the `/api/v1` prefix and one-shot
@@ -68,30 +69,32 @@ export async function api<T>(
   retry = true,
 ): Promise<T> {
   const { json, headers, ...rest } = init;
-  const res = await fetch(`${BASE}${path}`, {
-    ...rest,
-    headers: {
-      ...(json !== undefined ? { 'content-type': 'application/json' } : {}),
-      ...(tokenStore.access ? { authorization: `Bearer ${tokenStore.access}` } : {}),
-      ...headers,
-    },
-    body: json !== undefined ? JSON.stringify(json) : rest.body,
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${BASE}${path}`, {
+      ...rest,
+      headers: {
+        ...(json !== undefined ? { 'content-type': 'application/json' } : {}),
+        ...(tokenStore.access ? { authorization: `Bearer ${tokenStore.access}` } : {}),
+        ...headers,
+      },
+      body: json !== undefined ? JSON.stringify(json) : rest.body,
+    });
+  } catch {
+    throw new ApiError(0, networkErrorMessage());
+  }
 
   if (res.status === 401 && retry && (await tryRefresh())) {
     return api<T>(path, init, false);
   }
   if (!res.ok) {
-    let message = res.statusText;
-    let details: unknown;
+    let body: ApiErrorBody | undefined;
     try {
-      const body = (await res.json()) as { message?: string; details?: unknown };
-      if (body.message) message = body.message;
-      details = body.details;
+      body = (await res.json()) as ApiErrorBody;
     } catch {
-      /* keep statusText */
+      // No JSON body — a proxy or gateway error page, not our API.
     }
-    throw new ApiError(res.status, message, details);
+    throw new ApiError(res.status, friendlyErrorMessage(res.status, body), body?.details);
   }
   if (res.status === 204) return undefined as T;
   return (await res.json()) as T;

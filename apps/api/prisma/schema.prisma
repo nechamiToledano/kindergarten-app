@@ -36,6 +36,14 @@ enum SessionMode {
   PRACTICE
 }
 
+// M10 §2 — an assessment is planned up front, so progress, resumption and
+// "what was deliberately skipped" are recorded facts rather than guesses.
+enum PlanItemStatus {
+  PENDING
+  DONE
+  SKIPPED
+}
+
 enum GameType {
   BINARY_IMAGE_CHOICE
   MULTI_IMAGE_CHOICE
@@ -66,6 +74,7 @@ model Kindergarten {
   users     User[]
   children  Child[]
   sessions  Session[]
+  results   SubdomainResult[]
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
@@ -97,7 +106,11 @@ model Child {
   birthDate      DateTime     @db.Date
   /** M7 §3.2 — uploaded via the existing media pipeline (§14.3), optional. */
   photoUrl       String?
+  /** M10 §4 — teacher-set follow-up flag. Drives the dashboard attention panel
+      alongside the computed concern rule; never inferred from results alone. */
+  watch          Boolean      @default(false)
   sessions       Session[]
+  results        SubdomainResult[]
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
   deletedAt      DateTime?
@@ -105,36 +118,56 @@ model Child {
   @@index([kindergartenId])
 }
 
-model AgeGroupDomain {
-  id         String      @id @default(uuid())
-  ageGroup   AgeGroup
-  name       String
-  orderIndex Int         @default(0)
-  subdomains Subdomain[]
-  createdAt  DateTime    @default(now())
-  updatedAt  DateTime    @updatedAt
-  deletedAt  DateTime?
-
-  @@index([ageGroup])
+/**
+ * M10 §1 — a developmental area, global across age bands.
+ *
+ * Replaces `AgeGroupDomain`, which carried an `ageGroup` column and so split one
+ * real-world domain into three unrelated rows. That made a child's progression
+ * discontinuous the moment they crossed an age band — the exact point the report
+ * matters most — and made a kindergarten-wide "phonological awareness" figure
+ * impossible. Age is now a property of the *subdomain* (which games apply at
+ * which band), not of the domain.
+ */
+model Domain {
+  id          String      @id @default(uuid())
+  /** Stable key, independent of the display name. Used by seeds and imports. */
+  slug        String      @unique
+  name        String
+  description String?
+  /** lucide icon name, rendered by the shared DomainGlyph component. */
+  icon        String?
+  orderIndex  Int         @default(0)
+  subdomains  Subdomain[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  deletedAt   DateTime?
 }
 
 model Subdomain {
   id                 String             @id @default(uuid())
   domainId           String
-  domain             AgeGroupDomain     @relation(fields: [domainId], references: [id])
+  domain             Domain             @relation(fields: [domainId], references: [id])
   name               String
   orderIndex         Int                @default(0)
+  /** M10 §1 — the age bands this game is appropriate for. A subdomain that
+      applies across the whole kindergarten lists all three. */
+  ageGroups          AgeGroup[]
+  /** M10 §1 — 1 foundational, 2 developing, 3 advanced. Lets an assessment be
+      built at the right difficulty inside an age band, not just per band. */
+  level              Int                @default(1)
   teacherInstruction String
   childInstruction   String
   gameType           GameType
   gameConfig         Json
   versions           SubdomainVersion[]
   results            SubdomainResult[]
+  planItems          SessionPlanItem[]
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
   deletedAt          DateTime?
 
   @@index([domainId])
+  @@index([level])
 }
 
 // Immutable snapshot a result is measured under (§9.3).
@@ -159,8 +192,12 @@ model Session {
   kindergarten   Kindergarten      @relation(fields: [kindergartenId], references: [id])
   startedAt      DateTime          @default(now())
   completedAt    DateTime?
+  /** M10 §2 — set when a teacher ends a session early. Distinguishes "we stopped"
+      from "still open", which the dashboard previously could not tell apart. */
+  abandonedAt    DateTime?
   ageGroupAtTime AgeGroup
   mode           SessionMode       @default(ASSESSMENT)
+  plan           SessionPlanItem[]
   results        SubdomainResult[]
   createdAt      DateTime          @default(now())
   updatedAt      DateTime          @updatedAt
@@ -168,6 +205,30 @@ model Session {
 
   @@index([kindergartenId])
   @@index([childId])
+  // Dashboard and report windows all filter kindergarten + mode + a date range.
+  @@index([kindergartenId, mode, startedAt])
+}
+
+/**
+ * M10 §2 — what this session set out to assess, in order.
+ *
+ * Before this, a session recorded only what happened to be answered, so the UI
+ * could show neither "3 of 12" nor resume an interrupted sitting, and a skipped
+ * subdomain was indistinguishable from one never reached.
+ */
+model SessionPlanItem {
+  id          String         @id @default(uuid())
+  sessionId   String
+  session     Session        @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  subdomainId String
+  subdomain   Subdomain      @relation(fields: [subdomainId], references: [id])
+  orderIndex  Int
+  status      PlanItemStatus @default(PENDING)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  @@unique([sessionId, subdomainId])
+  @@index([sessionId])
 }
 
 model SubdomainResult {
@@ -176,6 +237,22 @@ model SubdomainResult {
   clientId           String           @unique
   sessionId          String
   session            Session          @relation(fields: [sessionId], references: [id])
+  /**
+   * M10 §3 — denormalised from the owning session so this table can be tenant-
+   * scoped by the Prisma extension like Child and Session, instead of every
+   * report hand-writing `session: { kindergartenId }`. Immutable: a session
+   * never changes kindergarten, so this cannot drift from its source.
+   */
+  kindergartenId     String
+  kindergarten       Kindergarten     @relation(fields: [kindergartenId], references: [id])
+  /**
+   * M10 §3 — also denormalised from the session, and for the same reason: every
+   * report asks for "the latest result per child per subdomain". Reaching the
+   * child through Session turned that into a join on every single query; here it
+   * is one indexed DISTINCT ON. Immutable, like kindergartenId.
+   */
+  childId            String
+  child              Child            @relation(fields: [childId], references: [id])
   subdomainId        String
   subdomain          Subdomain        @relation(fields: [subdomainId], references: [id])
   subdomainVersionId String
@@ -189,6 +266,52 @@ model SubdomainResult {
 
   @@index([sessionId])
   @@index([subdomainId])
+  @@index([kindergartenId])
+  // "latest result per child per subdomain" — the shape every report needs.
+  @@index([kindergartenId, subdomainId, createdAt])
+  @@index([childId, subdomainId, createdAt])
+}
+
+/**
+ * System-wide, admin-editable configuration (M11 — real management).
+ *
+ * A row is a named knob a NETWORK_ADMIN can change from the admin app instead of
+ * a code deploy. `value` is validated against a per-key Zod schema in
+ * `@kga/contracts` before it is written, so this table is structured
+ * configuration, not a free-form bucket. Every key that ships has a code-level
+ * default, so a missing row is never a broken feature — only "nobody has
+ * customised this yet".
+ */
+model AppSetting {
+  key         String    @id
+  value       Json
+  description String?
+  updatedById String?
+  updatedAt   DateTime  @updatedAt
+  createdAt   DateTime  @default(now())
+}
+
+/**
+ * The asset library (M11 — real management, §14.3 extended).
+ *
+ * Every upload through `MediaService.upload` gets one row, storage-backend
+ * agnostic (works the same for `StaticAssetStorage` and `R2Storage` — neither
+ * needs a "list objects" API). Removing a row only drops it from the library
+ * picker; a subdomain's `gameConfig` stores the URL string directly, so an
+ * asset already in use is never broken by removing its catalogue entry.
+ */
+model MediaAsset {
+  id           String   @id @default(uuid())
+  key          String   @unique
+  url          String
+  kind         String
+  mimeType     String
+  sizeBytes    Int
+  originalName String?
+  uploadedById String?
+  createdAt    DateTime @default(now())
+
+  @@index([kind, createdAt])
 }
 
 model AuditLog {

@@ -1,0 +1,17 @@
+{
+  "name": "telem-brand-palette",
+  "description": "Warm home palette for the תלם brand system. Six colors, each with one job — do not introduce tints/shades outside this list in branding assets.",
+  "colors": {
+    "cream": { "hex": "#FFF8EE", "role": "canvas / paper — backgrounds, negative space, light-on-dark fills" },
+    "mint": { "hex": "#77CDB5", "role": "primary brand color — the house mark body, main accents" },
+    "pine": { "hex": "#3F9B82", "role": "depth — shading, hover states, secondary accents, tagline text" },
+    "coral": { "hex": "#FF947D", "role": "warmth — doors, hearts, primary actions in illustrations, error tone (soft, never harsh red)" },
+    "sun": { "hex": "#FFD66B", "role": "joy — windows, chimney toppers, highlights, success sparkle" },
+    "navy": { "hex": "#234052", "role": "ink — wordmark text, outlines, dark backgrounds (app icon, favicon plate)" }
+  },
+  "usage": {
+    "onLight": "navy text/lines on cream canvas",
+    "onDark": "cream text/lines on navy canvas",
+    "accentPairing": "mint + pine for structure, coral + sun for warmth and life"
+  }
+}

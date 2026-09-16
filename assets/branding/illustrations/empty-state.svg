@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300">
+  <!-- תלם — empty state illustration: nothing here yet, but ready to grow. -->
+  <ellipse cx="200" cy="248" rx="92" ry="13" fill="#3F9B82" opacity="0.15"/>
+
+  <rect x="120" y="110" width="160" height="120" rx="24" fill="none"
+        stroke="#3F9B82" stroke-width="4" stroke-dasharray="2 14" stroke-linecap="round"/>
+
+  <g transform="translate(200,190)">
+    <path d="M0,26 L0,0" stroke="#3F9B82" stroke-width="5" stroke-linecap="round" fill="none"/>
+    <path d="M0,13 C-18,13 -21,-3 -5,-6 C-2,5 0,10 0,13Z" fill="#77CDB5"/>
+    <path d="M0,5 C18,5 22,-10 8,-14 C4,-3 0,3 0,5Z" fill="#3F9B82"/>
+  </g>
+
+  <circle cx="140" cy="100" r="4" fill="#FFD66B"/>
+  <circle cx="264" cy="228" r="5" fill="#FF947D"/>
+</svg>

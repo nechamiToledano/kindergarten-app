@@ -25,6 +25,7 @@ export function Comparison({ config, disabled, onAnswer }: GameComponentProps<Co
       </OptionGrid>
       <button
         type="button"
+        className="game-tap-pad"
         disabled={disabled}
         onClick={() => onAnswer('EQUAL')}
         style={{
@@ -32,7 +33,7 @@ export function Comparison({ config, disabled, onAnswer }: GameComponentProps<Co
           paddingInline: '2rem',
           fontSize: 20,
           fontWeight: 700,
-          borderRadius: 16,
+          borderRadius: 999,
           border: '3px solid var(--accent-2)',
           background: 'var(--accent-2-bg)',
           color: 'var(--text-h)',

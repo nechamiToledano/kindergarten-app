@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- תלם favicon. Simplified two-tone house (body + door only) — the heart window and sun topper are dropped so the silhouette stays crisp at 16px. -->
+  <rect width="64" height="64" rx="14" fill="#234052"/>
+  <g transform="translate(5,4) scale(0.27)">
+    <path d="M100,36
+             C132,36 168,64 168,97
+             L168,147
+             Q168,170 145,170
+             L55,170
+             Q32,170 32,147
+             L32,97
+             C32,64 68,36 100,36 Z"
+          fill="#FFF8EE"/>
+    <path d="M84,170 L84,142 Q84,122 100,122 Q116,122 116,142 L116,170 Z" fill="#FF947D"/>
+  </g>
+</svg>

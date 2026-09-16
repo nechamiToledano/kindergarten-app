@@ -47,7 +47,7 @@ export class ReportsController {
     @Query('format') format?: string,
   ) {
     const data = await this.reports.childProgression(principal, childId);
-    this.send(res, `progression-${childId}`, this.fmt(format), data);
+    await this.send(res, `progression-${childId}`, this.fmt(format), data);
   }
 
   @Get('children/:childId/vs-group/export')
@@ -58,7 +58,7 @@ export class ReportsController {
     @Query('format') format?: string,
   ) {
     const data = await this.reports.childVsGroup(principal, childId);
-    this.send(res, `vs-group-${childId}`, this.fmt(format), data);
+    await this.send(res, `vs-group-${childId}`, this.fmt(format), data);
   }
 
   @Get('subdomains/:subdomainId/patterns/export')
@@ -69,15 +69,15 @@ export class ReportsController {
     @Query('format') format?: string,
   ) {
     const data = await this.reports.crossChildPatterns(principal, subdomainId);
-    this.send(res, `patterns-${subdomainId}`, this.fmt(format), data);
+    await this.send(res, `patterns-${subdomainId}`, this.fmt(format), data);
   }
 
   private fmt(format?: string): ExportFormat {
     return ExportFormatSchema.parse(format ?? 'pdf');
   }
 
-  private send(res: Response, name: string, format: ExportFormat, data: unknown): void {
-    const out = this.exporter.export(name, format, data);
+  private async send(res: Response, name: string, format: ExportFormat, data: unknown): Promise<void> {
+    const out = await this.exporter.export(name, format, data);
     res.set({
       'Content-Type': out.contentType,
       'Content-Disposition': `attachment; filename="${out.filename}"`,

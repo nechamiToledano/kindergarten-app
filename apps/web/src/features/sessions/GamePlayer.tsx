@@ -5,16 +5,17 @@ import {
   useReducer,
   useRef,
   useState,
-  type CSSProperties,
 } from 'react';
 import type { GameConfig, Rating, RawAnswer } from '@kga/contracts';
 import {
+  MAX_ATTEMPTS,
   initialSessionState,
   sessionReducer,
   type SessionState,
 } from '@kga/game-engine';
 import { ConfettiBurst, RatingBar, type RatingValue } from '@kga/ui';
 import { AssetPreloader } from '../../shared/assets/AssetPreloader';
+import { isToneUrl } from '../../shared/assets/placeholder';
 import { useAudioUnlock } from '../../shared/audio/AudioUnlockProvider';
 import { engineRegistry, gameComponents } from '../../games/registry';
 
@@ -35,27 +36,14 @@ export interface SubdomainRunResult {
 }
 
 const RATING_LABELS: Record<RatingValue, string> = {
-  PRESENT: 'קיים',
-  PARTIALLY_PRESENT: 'קיים חלקית',
-  ABSENT: 'לא קיים',
+  PRESENT: '✓ קיים',
+  PARTIALLY_PRESENT: '~ קיים חלקית',
+  ABSENT: '✕ לא קיים',
 };
 
 function promptAudioUrl(config: GameConfig): string | null {
   return 'promptAudioUrl' in config ? config.promptAudioUrl : null;
 }
-
-const surface: CSSProperties = {
-  position: 'fixed',
-  inset: 0,
-  display: 'flex',
-  flexDirection: 'column',
-  alignItems: 'center',
-  justifyContent: 'center',
-  gap: '1.5rem',
-  padding: '2rem',
-  background: 'var(--gradient-paper)',
-  textAlign: 'center',
-};
 
 export function GamePlayer({
   subdomain,
@@ -72,10 +60,23 @@ export function GamePlayer({
   const assets = useMemo(() => plugin.assetsOf(config), [plugin, config]);
   const Component = gameComponents[config.gameType];
 
-  const { unlock, play } = useAudioUnlock();
+  const { unlock, play, speak } = useAudioUnlock();
+
+  // Real speech is a better stand-in than an abstract tone for a subdomain
+  // whose human recording hasn't landed yet — speak the instruction text
+  // itself instead of the terse tone seed.
+  const playPrompt = useCallback(
+    (url: string | null) => {
+      if (!url) return Promise.resolve();
+      if (isToneUrl(url)) return speak(subdomain.childInstruction);
+      return play(url);
+    },
+    [play, speak, subdomain.childInstruction],
+  );
   const [state, dispatch] = useReducer(sessionReducer, undefined, initialSessionState);
   const [note, setNote] = useState('');
   const [pendingRating, setPendingRating] = useState<RatingValue | null>(null);
+  const [isPromptPlaying, setIsPromptPlaying] = useState(false);
 
   // ChildInstruction — play the prompt (after the teacher's Start gesture), then advance.
   useEffect(() => {
@@ -83,26 +84,37 @@ export function GamePlayer({
     let cancelled = false;
     const url = promptAudioUrl(config);
     const done = () => {
-      if (!cancelled) dispatch({ type: 'CHILD_AUDIO_FINISHED' });
+      if (!cancelled) {
+        setIsPromptPlaying(false);
+        dispatch({ type: 'CHILD_AUDIO_FINISHED' });
+      }
     };
-    if (url) play(url).then(done, done);
+    setIsPromptPlaying(true);
+    if (url) playPrompt(url).then(done, done);
     else done();
     return () => {
       cancelled = true;
     };
-  }, [state.phase, config, play]);
+  }, [state.phase, config, playPrompt]);
 
-  // Feedback phases tick forward on a timer.
+  // Feedback phases tick forward on a timer, each cued by its own sound effect
+  // (Spec: "תגובה חזותית עם צליל ... לתשובה נכונה או שגויה").
   useEffect(() => {
     if (state.phase === 'WrongFeedback') {
+      void play('/assets/audio/sfx-wrong.wav');
       const t = setTimeout(() => dispatch({ type: 'CONTINUE_AFTER_WRONG' }), 1600);
       return () => clearTimeout(t);
     }
-    if (state.phase === 'CorrectFeedback' || state.phase === 'Exhausted') {
+    if (state.phase === 'CorrectFeedback') {
+      void play('/assets/audio/sfx-correct.wav');
       const t = setTimeout(() => dispatch({ type: 'ADVANCE' }), 1200);
       return () => clearTimeout(t);
     }
-  }, [state.phase]);
+    if (state.phase === 'Exhausted') {
+      const t = setTimeout(() => dispatch({ type: 'ADVANCE' }), 1200);
+      return () => clearTimeout(t);
+    }
+  }, [state.phase, play]);
 
   // Done — hand the result up once.
   const completedRef = useRef(false);
@@ -151,86 +163,126 @@ export function GamePlayer({
     switch (state.phase) {
       case 'TeacherInstruction':
         return (
-          <div style={surface}>
-            <h2>{subdomain.name}</h2>
-            <p style={{ maxInlineSize: 640, fontSize: 20 }}>{subdomain.teacherInstruction}</p>
-            <button type="button" onClick={start} className="game-submit-btn">
-              התחלה
-            </button>
-          </div>
+          <main className="game-screen game-screen-centered">
+            <div className="game-topbar"><span className="game-brand">משחקים ולומדים</span><span className="game-step">הכנה למשחק</span></div>
+            <div className="game-hero-card">
+              <span className="game-hero-icon" aria-hidden="true">🎈</span>
+              <span className="game-kicker">תרגול אישי</span>
+              <h1>{subdomain.name}</h1>
+              <div className="teacher-note">
+                <span className="teacher-note-label">להנחיה</span>
+                <p>{subdomain.teacherInstruction}</p>
+              </div>
+              <button type="button" onClick={start} className="game-submit-btn game-submit-btn-lg">מתחילים לשחק</button>
+            </div>
+          </main>
         );
 
       case 'ChildInstruction':
         return (
-          <div style={surface}>
-            <p style={{ fontSize: 26 }}>{subdomain.childInstruction}</p>
-            <p aria-hidden style={{ fontSize: 40 }}>🔊</p>
-          </div>
+          <main className="game-screen game-screen-centered">
+            <div className="game-topbar"><span className="game-brand">משחקים ולומדים</span><span className="game-step">הקשבה</span></div>
+            <div className="instruction-card">
+              <span className={`sound-orb ${isPromptPlaying ? 'is-playing' : ''}`} aria-hidden="true"><span /></span>
+              <span className="game-kicker">הקשיבו להוראה</span>
+              <h1>{subdomain.childInstruction}</h1>
+              <button
+                type="button"
+                className="replay-button"
+                onClick={() => { const url = promptAudioUrl(config); if (url) { setIsPromptPlaying(true); void playPrompt(url).finally(() => setIsPromptPlaying(false)); } }}
+                disabled={isPromptPlaying || !promptAudioUrl(config)}
+              >
+                <span aria-hidden="true">🔁</span> השמעה חוזרת
+              </button>
+            </div>
+          </main>
         );
 
       case 'Playing':
         return (
-          <div style={surface}>
-            <AssetPreloader assets={assets}>
-              <Component config={config as never} disabled={false} onAnswer={handleAnswer} />
-            </AssetPreloader>
-          </div>
+          <main className="game-screen game-screen-centered">
+            <div className="game-topbar">
+              <span className="game-brand">משחקים ולומדים</span>
+              <span className="game-progress-dots" aria-label={`נסיון ${state.attempts + 1} מתוך ${MAX_ATTEMPTS}`}>
+                {Array.from({ length: MAX_ATTEMPTS }, (_, i) => (
+                  <span key={i} className={`game-progress-dot ${i <= state.attempts ? 'is-done' : ''}`} />
+                ))}
+              </span>
+            </div>
+            <div className="game-play-header">
+              <div className="game-instruction-pill">{subdomain.childInstruction}</div>
+              {promptAudioUrl(config) && <button type="button" className="replay-button game-replay" onClick={() => { const url = promptAudioUrl(config); if (url) void playPrompt(url); }} aria-label="שמיעת ההוראה שוב">🔊</button>}
+            </div>
+            <div className="game-play-card"><AssetPreloader assets={assets}><Component config={config as never} disabled={false} onAnswer={handleAnswer} /></AssetPreloader></div>
+          </main>
         );
 
       case 'WrongFeedback':
         return (
-          <div style={surface} className="feedback wrong shake">
-            <p style={{ fontSize: 64 }}>❌</p>
+          <main className="game-screen game-screen-centered feedback wrong shake">
+            <span className="feedback-mark feedback-wrong-mark" aria-hidden="true">×</span>
             <p style={{ fontSize: 24 }}>ננסה שוב</p>
-          </div>
+          </main>
         );
 
       case 'CorrectFeedback':
         return (
-          <div style={surface} className="feedback correct">
+          <main className="game-screen game-screen-centered feedback correct">
             <ConfettiBurst pieces={16} />
-            <p style={{ fontSize: 64 }}>✅</p>
-          </div>
+            <span className="feedback-mark feedback-correct-mark" aria-hidden="true">✓</span>
+          </main>
         );
 
       case 'Exhausted':
         return (
-          <div style={surface}>
-            <p style={{ fontSize: 48 }}>👍</p>
+          <main className="game-screen game-screen-centered">
+            <span className="feedback-mark feedback-next-mark" aria-hidden="true">→</span>
             <p style={{ fontSize: 22 }}>עוברים הלאה</p>
-          </div>
+          </main>
         );
 
       case 'RatingSuccess':
-      case 'RatingFailure':
+      case 'RatingFailure': {
+        const succeeded = state.phase === 'RatingSuccess';
         return (
-          <div style={surface}>
-            <h2>דירוג — {subdomain.name}</h2>
-            <p style={{ fontSize: 16, color: 'var(--text)' }}>
-              {state.attempts} ניסיונות · הגננת מדרגת תמיד ידנית (§8)
-            </p>
-            <RatingBar value={pendingRating} onChange={setPendingRating} labels={RATING_LABELS} />
-            {state.phase === 'RatingFailure' && (
-              <textarea
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                placeholder="הערת גננת (רק לאחר שלושה כישלונות)"
-                rows={3}
-                style={{ inlineSize: 'min(560px, 90vw)', fontSize: 16, padding: 8 }}
-              />
-            )}
-            <button type="button" onClick={confirmRating} disabled={!pendingRating} className="game-submit-btn">
-              שמירה
-            </button>
-          </div>
+          <main className="game-screen game-screen-centered">
+            <div className="game-topbar"><span className="game-brand">משחקים ולומדים</span><span className="game-step">סיכום פעילות</span></div>
+            <div className="rating-card">
+              <span className={`game-hero-icon ${succeeded ? '' : 'is-soft'}`} aria-hidden="true">{succeeded ? '🌟' : '💛'}</span>
+              <span className="game-kicker">סיימנו את הפעילות</span>
+              <h1>איך היה ל{state.attempts === 1 ? 'ך' : 'כם'}?</h1>
+              <h2>{subdomain.name}</h2>
+              <p className="rating-meta">
+                {succeeded
+                  ? `הצלחה בניסיון ${state.attempts} מתוך ${MAX_ATTEMPTS}`
+                  : `לא הסתייע הפעם — זה בסדר, כל ניסיון מלמד משהו`}
+              </p>
+              <RatingBar value={pendingRating} onChange={setPendingRating} labels={RATING_LABELS} />
+              {state.phase === 'RatingFailure' && (
+                <label className="teacher-note-field">
+                  <span className="teacher-note-label">הערת גננת (רק לאחר שלושה כישלונות)</span>
+                  <textarea
+                    value={note}
+                    onChange={(e) => setNote(e.target.value)}
+                    placeholder="מה שווה לזכור על הניסיון הזה?"
+                    rows={3}
+                  />
+                </label>
+              )}
+              <button type="button" onClick={confirmRating} disabled={!pendingRating} className="game-submit-btn game-submit-btn-lg">
+                שמירת הדירוג
+              </button>
+            </div>
+          </main>
         );
+      }
 
       case 'Done':
         return (
-          <div style={surface}>
-            <p style={{ fontSize: 48 }}>✔️</p>
-            <p>הדירוג נשמר</p>
-          </div>
+          <main className="game-screen game-screen-centered">
+            <span className="feedback-mark feedback-correct-mark" aria-hidden="true">✓</span>
+            <p style={{ fontSize: 22, fontWeight: 600 }}>הדירוג נשמר</p>
+          </main>
         );
 
       default:

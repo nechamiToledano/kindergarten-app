@@ -9,9 +9,9 @@
   },
   "scripts": {
     "build": "turbo run build",
-    "dev": "turbo run dev",
-    "lint": "turbo run lint",
-    "typecheck": "turbo run typecheck",
+    "dev": "pnpm --filter @kga/web dev --host 0.0.0.0",
+    "lint": "pnpm --filter @kga/web lint",
+    "typecheck": "pnpm --filter @kga/web typecheck",
     "test": "turbo run test",
     "db:generate": "pnpm --filter @kga/api prisma:generate",
     "db:migrate": "pnpm --filter @kga/api prisma:migrate",

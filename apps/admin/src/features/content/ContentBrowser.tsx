@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
-import { AgeGroupSchema, type AgeGroup, type Domain, type Subdomain } from '@kga/contracts';
+import {
+  AgeGroupSchema,
+  type AgeGroup,
+  type Domain,
+  type SubdomainSummary,
+} from '@kga/contracts';
 import { engineRegistry } from '../../shared/engine';
+import { subdomainPreviewUrl } from '../../shared/webApp';
 import { contentApi } from './api';
 import { SubdomainEditor } from './SubdomainEditor';
 
@@ -17,35 +23,45 @@ export function ContentBrowser() {
   const [error, setError] = useState<string | null>(null);
 
   const [openDomain, setOpenDomain] = useState<Domain | null>(null);
-  const [subdomains, setSubdomains] = useState<Subdomain[] | null>(null);
-  const [editing, setEditing] = useState<{ domainId: string; subdomain: Subdomain | null } | null>(
+  const [subdomains, setSubdomains] = useState<SubdomainSummary[] | null>(null);
+  // The editor is addressed by id, not by the row object: a list row is a
+  // summary without its gameConfig, and handing that to the editor as if it were
+  // a full subdomain is how an edit silently blanks a config.
+  const [editing, setEditing] = useState<{ domainId: string; subdomainId: string | null } | null>(
     null,
   );
 
+  // M10 §1 — domains no longer belong to an age band, so the whole list loads
+  // once. The age selector below filters the *subdomains* under a domain, which
+  // is where age actually varies.
   const loadDomains = useCallback(() => {
     setDomains(null);
     contentApi
-      .listDomains(ageGroup)
+      .listDomains()
       .then(setDomains)
       .catch((e) => setError(e instanceof Error ? e.message : 'שגיאה'));
-  }, [ageGroup]);
+  }, []);
 
   useEffect(loadDomains, [loadDomains]);
 
-  const loadSubdomains = useCallback((domain: Domain) => {
-    setOpenDomain(domain);
-    setSubdomains(null);
-    contentApi
-      .listSubdomains(domain.id)
-      .then(setSubdomains)
-      .catch((e) => setError(e instanceof Error ? e.message : 'שגיאה'));
-  }, []);
+  const loadSubdomains = useCallback(
+    (domain: Domain) => {
+      setOpenDomain(domain);
+      setSubdomains(null);
+      contentApi
+        .listSubdomains({ domainId: domain.id, ageGroup })
+        .then(setSubdomains)
+        .catch((e) => setError(e instanceof Error ? e.message : 'שגיאה'));
+    },
+    [ageGroup],
+  );
 
   async function addDomain() {
     const name = window.prompt('שם התחום החדש');
     if (!name) return;
     try {
-      await contentApi.createDomain({ ageGroup, name, orderIndex: domains?.length ?? 0 });
+      // The slug is derived server-side from the name when omitted.
+      await contentApi.createDomain({ name, orderIndex: domains?.length ?? 0 });
       loadDomains();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'שגיאה');
@@ -74,7 +90,7 @@ export function ContentBrowser() {
     }
   }
 
-  async function deleteSubdomain(s: Subdomain) {
+  async function deleteSubdomain(s: SubdomainSummary) {
     if (!window.confirm(`למחוק את "${s.name}"?`)) return;
     try {
       await contentApi.deleteSubdomain(s.id);
@@ -88,7 +104,8 @@ export function ContentBrowser() {
     return (
       <SubdomainEditor
         domainId={editing.domainId}
-        existing={editing.subdomain}
+        subdomainId={editing.subdomainId}
+        defaultAgeGroup={ageGroup}
         onCancel={() => setEditing(null)}
         onDone={() => {
           setEditing(null);
@@ -141,7 +158,7 @@ export function ContentBrowser() {
                 </button>
               </li>
             ))}
-            {domains?.length === 0 && <li className="muted">אין תחומים בגיל זה.</li>}
+            {domains?.length === 0 && <li className="muted">אין תחומים עדיין.</li>}
           </ul>
         </section>
 
@@ -152,7 +169,7 @@ export function ContentBrowser() {
               <button
                 type="button"
                 className="btn-ghost"
-                onClick={() => setEditing({ domainId: openDomain.id, subdomain: null })}
+                onClick={() => setEditing({ domainId: openDomain.id, subdomainId: null })}
               >
                 + תת-תחום
               </button>
@@ -166,18 +183,30 @@ export function ContentBrowser() {
                 <button
                   type="button"
                   className="list-main"
-                  onClick={() => setEditing({ domainId: s.domainId, subdomain: s })}
+                  onClick={() => setEditing({ domainId: s.domainId, subdomainId: s.id })}
                 >
                   {s.name}
                   <span className="badge">{engineRegistry.get(s.gameType).meta.label}</span>
+                  <span className="badge">רמה {s.level}</span>
+                  {!s.playable && <span className="badge">טרם פורסם</span>}
                 </button>
+                {s.playable && (
+                  <a
+                    className="link"
+                    href={subdomainPreviewUrl(s.id)}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    שחק
+                  </a>
+                )}
                 <button type="button" className="link danger" onClick={() => deleteSubdomain(s)}>
                   מחק
                 </button>
               </li>
             ))}
             {openDomain && subdomains?.length === 0 && (
-              <li className="muted">אין תת-תחומים.</li>
+              <li className="muted">אין תת-תחומים לקבוצת הגיל הזו.</li>
             )}
           </ul>
         </section>

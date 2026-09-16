@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import type { Kindergarten, Role, User } from '@kga/contracts';
+import type { Kindergarten, Network, Role, User } from '@kga/contracts';
 import { useAuth } from '../../shared/auth/AuthProvider';
+import { networkApi } from '../settings/api';
 import { staffApi } from './api';
 
 const ROLE_LABEL: Record<Role, string> = {
@@ -21,6 +22,7 @@ export function StaffBrowser() {
 
   const [users, setUsers] = useState<User[] | null>(null);
   const [kgs, setKgs] = useState<Kindergarten[]>([]);
+  const [network, setNetwork] = useState<Network | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState(blankForm);
   const [busy, setBusy] = useState(false);
@@ -36,7 +38,21 @@ export function StaffBrowser() {
   useEffect(() => {
     load();
     staffApi.listKindergartens().then(setKgs).catch(() => undefined);
-  }, []);
+    if (user?.role === 'NETWORK_ADMIN') {
+      networkApi.getMine().then(setNetwork).catch(() => undefined);
+    }
+  }, [user?.role]);
+
+  async function renameNetwork() {
+    if (!network) return;
+    const name = window.prompt('שם חדש לרשת', network.name);
+    if (!name || name === network.name) return;
+    try {
+      setNetwork(await networkApi.updateMine({ name }));
+    } catch (e) {
+      setError(errMsg(e));
+    }
+  }
 
   async function submit() {
     setBusy(true);
@@ -111,6 +127,18 @@ export function StaffBrowser() {
   return (
     <div className="browser">
       {error && <p className="error-text">{error}</p>}
+
+      {network && (
+        <section className="col">
+          <div className="col-head">
+            <h2>רשת: {network.name}</h2>
+            <button type="button" className="link" onClick={renameNetwork}>
+              שנה שם
+            </button>
+          </div>
+          <p className="muted">{network.kindergartenCount} גנים ברשת</p>
+        </section>
+      )}
 
       <section className="col">
         <div className="col-head">

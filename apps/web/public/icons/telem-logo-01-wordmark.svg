@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 300">
+<rect width="900" height="300" rx="24" fill="#FAF9F5"/>
+<text x="420" y="150" text-anchor="middle" direction="rtl" unicode-bidi="bidi-override" font-family="'Rubik', Arial, sans-serif" font-size="118" font-weight="700" letter-spacing="-2" fill="#24494A">תלם</text>
+<g transform="translate(598 78) scale(1.05)">
+<path d="M18 62Q50 92 82 62" fill="none" stroke="#326351" stroke-width="8.5" stroke-linecap="round"/>
+<path d="M27 55Q50 78 73 55" fill="none" stroke="#437562" stroke-width="7.5" stroke-linecap="round"/>
+<path d="M36 49Q50 65 64 49" fill="none" stroke="#719788" stroke-width="7" stroke-linecap="round"/>
+<circle cx="50" cy="25" r="8.5" fill="#D9AF68"/>
+</g>
+<text x="450" y="248" text-anchor="middle" direction="rtl" unicode-bidi="bidi-override" font-family="'Rubik', Arial, sans-serif" font-size="23" font-weight="500" letter-spacing="4.5" fill="#437562">תובנות להתפתחות מדויקת</text>
+</svg>

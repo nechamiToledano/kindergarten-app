@@ -1,4 +1,5 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import type { CreateKindergarten, Principal, UpdateKindergarten } from '@kga/contracts';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { AuditService } from '../common/audit.service.js';
@@ -10,15 +11,26 @@ export class TenancyService {
     private readonly audit: AuditService,
   ) {}
 
-  /** A network admin sees their network; a kindergarten admin sees their own. */
-  private scope(principal: Principal) {
-    if (principal.role === 'NETWORK_ADMIN' && principal.networkId) {
+  /**
+   * A network admin sees their network; a kindergarten admin sees their own.
+   *
+   * This used to fall through to `{ deletedAt: null }` — an unscoped filter — for
+   * a principal with neither a network nor a kindergarten, which handed a
+   * NETWORK_ADMIN whose networkId had not been set every kindergarten in the
+   * system. There is no such thing as a legitimate unscoped listing here, so the
+   * fall-through is now a refusal.
+   */
+  private scope(principal: Principal): Prisma.KindergartenWhereInput {
+    if (principal.role === 'NETWORK_ADMIN') {
+      if (!principal.networkId) {
+        throw new ForbiddenException('This account is not attached to a network');
+      }
       return { networkId: principal.networkId, deletedAt: null };
     }
     if (principal.kindergartenId) {
       return { id: principal.kindergartenId, deletedAt: null };
     }
-    return { deletedAt: null };
+    throw new ForbiddenException('This account is not attached to a kindergarten');
   }
 
   list(principal: Principal) {

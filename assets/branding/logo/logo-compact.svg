@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 150">
+  <!-- תלם — compact lockup for headers/nav bars. Transparent background. -->
+  <text x="195" y="100" text-anchor="end" direction="rtl"
+        font-family="'Rubik', Arial, sans-serif" font-size="54" font-weight="700"
+        fill="#234052">תלם</text>
+  <g transform="translate(255,22) scale(0.53)">
+    <path d="M100,36
+             C132,36 168,64 168,97
+             L168,147
+             Q168,170 145,170
+             L55,170
+             Q32,170 32,147
+             L32,97
+             C32,64 68,36 100,36 Z"
+          fill="#77CDB5"/>
+    <circle cx="138" cy="54" r="11" fill="#FFD66B"/>
+    <path d="M100,96
+             C96,90 86,90 84,99
+             C82,108 92,114 100,122
+             C108,114 118,108 116,99
+             C114,90 104,90 100,96 Z"
+          fill="#FFF8EE"/>
+    <path d="M84,170 L84,142 Q84,122 100,122 Q116,122 116,142 L116,170 Z" fill="#FF947D"/>
+  </g>
+</svg>

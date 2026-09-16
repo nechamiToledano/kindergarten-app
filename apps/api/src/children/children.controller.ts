@@ -1,5 +1,6 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import {
+  ChildListQuerySchema,
   CreateChildSchema,
   UpdateChildSchema,
   type CreateChild,
@@ -15,13 +16,16 @@ import { ChildrenService } from './children.service.js';
 export class ChildrenController {
   constructor(private readonly children: ChildrenService) {}
 
+  /** Paginated roster. Filters are applied in SQL; see ChildrenService.list. */
   @Get()
-  list(
-    @CurrentUser() principal: Principal,
-    @Query('search') search?: string,
-    @Query('ageGroup') ageGroup?: string,
-  ) {
-    return this.children.list(principal, search, ageGroup);
+  list(@CurrentUser() principal: Principal, @Query() query: Record<string, string>) {
+    return this.children.list(principal, ChildListQuerySchema.parse(query));
+  }
+
+  /** The child workspace in one request (M10 §4). */
+  @Get(':id/overview')
+  overview(@CurrentUser() principal: Principal, @Param('id') id: string) {
+    return this.children.overview(principal, id);
   }
 
   @Get(':id')

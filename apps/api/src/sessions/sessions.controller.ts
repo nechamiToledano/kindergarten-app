@@ -1,10 +1,12 @@
 import { Body, Controller, Get, HttpCode, Param, Post } from '@nestjs/common';
 import {
   CreateSessionSchema,
+  SkipPlanItemSchema,
   SubmitResultSchema,
   SyncBatchSchema,
   type CreateSession,
   type Principal,
+  type SkipPlanItem,
   type SubmitResult,
   type SyncBatch,
 } from '@kga/contracts';
@@ -45,9 +47,27 @@ export class SessionsController {
     return this.sessions.sync(principal, body);
   }
 
+  /** Record that a planned subdomain was deliberately not run (M10 §2). */
+  @Post(':id/skip')
+  @HttpCode(200)
+  skip(
+    @CurrentUser() principal: Principal,
+    @Param('id') id: string,
+    @Body(new ZodBody(SkipPlanItemSchema)) body: SkipPlanItem,
+  ) {
+    return this.sessions.skip(principal, id, body.subdomainId);
+  }
+
   @Post(':id/complete')
   @HttpCode(200)
   complete(@CurrentUser() principal: Principal, @Param('id') id: string) {
     return this.sessions.complete(principal, id);
+  }
+
+  /** End a sitting early; everything still pending is recorded as skipped. */
+  @Post(':id/abandon')
+  @HttpCode(200)
+  abandon(@CurrentUser() principal: Principal, @Param('id') id: string) {
+    return this.sessions.abandon(principal, id);
   }
 }

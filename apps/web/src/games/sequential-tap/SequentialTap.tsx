@@ -37,13 +37,12 @@ export function SequentialTap({ config, disabled, onAnswer }: GameComponentProps
             aria-label={pad.label ?? pad.id}
             disabled={disabled || full}
             onClick={() => tap(pad.id)}
+            className="game-tap-pad"
             style={{
-              inlineSize: 140,
-              blockSize: 140,
+              inlineSize: 'clamp(90px, 18vw, 140px)',
+              blockSize: 'clamp(90px, 18vw, 140px)',
               minInlineSize: MIN_TOUCH_TARGET_PX,
               minBlockSize: MIN_TOUCH_TARGET_PX,
-              borderRadius: 24,
-              border: '5px solid transparent',
               background: pad.color,
               cursor: disabled || full ? 'default' : 'pointer',
             }}

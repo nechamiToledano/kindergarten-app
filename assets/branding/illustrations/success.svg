@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300">
+  <!-- תלם — success illustration. -->
+  <ellipse cx="200" cy="248" rx="92" ry="13" fill="#3F9B82" opacity="0.15"/>
+
+  <circle cx="200" cy="150" r="85" fill="#77CDB5"/>
+  <path d="M162,152 L188,178 L242,120" fill="none" stroke="#FFF8EE" stroke-width="14"
+        stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- sprout -->
+  <g transform="translate(122,236)">
+    <path d="M0,20 L0,0" stroke="#3F9B82" stroke-width="4" stroke-linecap="round" fill="none"/>
+    <path d="M0,10 C-14,10 -16,-2 -4,-4 C-2,4 0,8 0,10Z" fill="#3F9B82"/>
+    <path d="M0,4 C14,4 17,-8 6,-11 C3,-2 0,2 0,4Z" fill="#77CDB5"/>
+  </g>
+
+  <!-- confetti burst -->
+  <g>
+    <circle cx="90" cy="80" r="6" fill="#FF947D"/>
+    <circle cx="310" cy="90" r="5" fill="#FFD66B"/>
+    <circle cx="330" cy="180" r="6" fill="#FF947D"/>
+    <circle cx="76" cy="190" r="5" fill="#FFD66B"/>
+    <rect x="300" y="220" width="9" height="9" rx="2" fill="#77CDB5" transform="rotate(18 304 224)"/>
+    <rect x="82" y="130" width="8" height="8" rx="2" fill="#FFD66B" transform="rotate(-15 86 134)"/>
+  </g>
+</svg>

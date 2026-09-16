@@ -1,10 +1,13 @@
 import {
   BadRequestException,
   Controller,
+  Delete,
   Get,
   Inject,
   Injectable,
   Module,
+  NotFoundException,
+  Param,
   Post,
   Query,
   UploadedFile,
@@ -14,8 +17,9 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'node:crypto';
 import { createDefaultRegistry } from '@kga/game-engine';
-import type { GameConfig, Principal } from '@kga/contracts';
+import { MediaAssetQuerySchema, type GameConfig, type MediaAssetQuery, type Principal } from '@kga/contracts';
 import type { Env } from '../config/env.js';
+import { PrismaService } from '../prisma/prisma.service.js';
 import { ContentService } from '../content/content.service.js';
 import { ContentModule } from '../content/content.module.js';
 import { AuditService } from '../common/audit.service.js';
@@ -84,6 +88,7 @@ interface UploadedFileLike {
 export class MediaService {
   constructor(
     private readonly content: ContentService,
+    private readonly prisma: PrismaService,
     @Inject(STORAGE_PORT) private readonly storage: StoragePort,
     private readonly audit: AuditService,
   ) {}
@@ -95,7 +100,11 @@ export class MediaService {
     return plugin.assetsOf(subdomain.gameConfig as GameConfig);
   }
 
-  /** Store one content asset and return the URL to reference from a gameConfig (§14.3). */
+  /**
+   * Store one content asset and return the URL to reference from a gameConfig
+   * (§14.3). Also catalogues it in `MediaAsset` (M11) so it shows up in the
+   * asset library and can be reused across subdomains instead of re-uploaded.
+   */
   async upload(principal: Principal, file: UploadedFileLike | undefined) {
     if (!file) throw new BadRequestException('No file provided');
     if (file.size > UPLOAD_MAX_BYTES) {
@@ -110,8 +119,64 @@ export class MediaService {
       .slice(0, 60);
     const key = `content/${randomUUID()}-${safe}.${ext}`;
     const url = await this.storage.put(key, file.buffer, file.mimetype);
+    const kind = file.mimetype.startsWith('audio/') ? 'audio' : 'image';
+    await this.prisma.mediaAsset.create({
+      data: {
+        key,
+        url,
+        kind,
+        mimeType: file.mimetype,
+        sizeBytes: file.size,
+        originalName: file.originalname || null,
+        uploadedById: principal.sub,
+      },
+    });
     await this.audit.record(principal.sub, 'media.upload', 'Asset', key);
-    return { url, key, kind: file.mimetype.startsWith('audio/') ? 'audio' : 'image' };
+    return { url, key, kind };
+  }
+
+  /** The asset library (M11) — every catalogued upload, newest first. */
+  async list(query: MediaAssetQuery) {
+    const where = {
+      ...(query.kind && { kind: query.kind }),
+      ...(query.search && { originalName: { contains: query.search, mode: 'insensitive' as const } }),
+    };
+    const [rows, total] = await Promise.all([
+      this.prisma.mediaAsset.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip: (query.page - 1) * query.pageSize,
+        take: query.pageSize,
+      }),
+      this.prisma.mediaAsset.count({ where }),
+    ]);
+    return {
+      total,
+      items: rows.map((r) => ({
+        id: r.id,
+        url: r.url,
+        key: r.key,
+        kind: r.kind as 'image' | 'audio',
+        mimeType: r.mimeType,
+        sizeBytes: r.sizeBytes,
+        originalName: r.originalName,
+        createdAt: r.createdAt.toISOString(),
+      })),
+    };
+  }
+
+  /**
+   * Remove an asset from the library only — the underlying file is left in
+   * storage. A subdomain's `gameConfig` holds the URL string directly, so this
+   * can never break content that already references it; it only stops the
+   * asset from being offered for new content.
+   */
+  async remove(principal: Principal, id: string) {
+    const row = await this.prisma.mediaAsset.findUnique({ where: { id } });
+    if (!row) throw new NotFoundException('Asset not found');
+    await this.prisma.mediaAsset.delete({ where: { id } });
+    await this.audit.record(principal.sub, 'media.removeFromLibrary', 'Asset', row.key);
+    return { id, deleted: true };
   }
 }
 
@@ -134,6 +199,19 @@ class MediaController {
   @UseInterceptors(FileInterceptor('file'))
   upload(@CurrentUser() principal: Principal, @UploadedFile() file: UploadedFileLike) {
     return this.media.upload(principal, file);
+  }
+
+  /** The asset library (M11, §14.3 extended) — content editors only. */
+  @Get()
+  @Roles('CONTENT_EDITOR')
+  list(@Query() query: Record<string, string>) {
+    return this.media.list(MediaAssetQuerySchema.parse(query));
+  }
+
+  @Delete(':id')
+  @Roles('CONTENT_EDITOR')
+  remove(@CurrentUser() principal: Principal, @Param('id') id: string) {
+    return this.media.remove(principal, id);
   }
 }
 

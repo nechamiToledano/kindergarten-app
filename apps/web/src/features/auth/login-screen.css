@@ -1,0 +1,67 @@
+/*
+ * Decorative motion for the login screen only.
+ *
+ * Scoped to this one screen on purpose: the rest of the teacher product is
+ * calm and static by design (see index.css). A login is crossed once and
+ * left, so it is the one place allowed a little life without that rule
+ * bleeding into screens a teacher stares at all day.
+ */
+
+@keyframes login-blob-drift {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  50% {
+    transform: translate(3%, -4%) scale(1.06);
+  }
+}
+
+@keyframes login-float {
+  0%,
+  100% {
+    transform: translateY(0) rotate(var(--login-float-rot, 0deg));
+  }
+  50% {
+    transform: translateY(-10px) rotate(var(--login-float-rot, 0deg));
+  }
+}
+
+@keyframes login-badge-pop {
+  0% {
+    transform: scale(0.6) rotate(-8deg);
+    opacity: 0;
+  }
+  70% {
+    transform: scale(1.08) rotate(3deg);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+  }
+}
+
+.login-blob {
+  animation: login-blob-drift 14s ease-in-out infinite;
+}
+
+.login-blob-delay {
+  animation-delay: -7s;
+}
+
+.login-float {
+  animation: login-float 5s ease-in-out infinite;
+}
+
+.login-badge {
+  animation: login-badge-pop 560ms var(--ease-out-soft, ease-out) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-blob,
+  .login-float,
+  .login-badge {
+    animation: none;
+  }
+}

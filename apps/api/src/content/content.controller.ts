@@ -1,11 +1,10 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import {
-  AgeGroupSchema,
   CreateDomainSchema,
   CreateSubdomainSchema,
+  SubdomainQuerySchema,
   UpdateDomainSchema,
   UpdateSubdomainSchema,
-  type AgeGroup,
   type CreateDomain,
   type CreateSubdomain,
   type Principal,
@@ -16,19 +15,32 @@ import { CurrentUser, Roles } from '../common/auth.js';
 import { ZodBody } from '../common/zod-validation.pipe.js';
 import { ContentService } from './content.service.js';
 
+/**
+ * Content is global, not tenant-owned: every kindergarten screens against the
+ * same catalogue, which is what makes cross-kindergarten comparison meaningful.
+ * Reads are therefore open to any authenticated staff member; writes stay with
+ * CONTENT_EDITOR.
+ */
 @Controller({ path: 'content', version: '1' })
 export class ContentController {
   constructor(private readonly content: ContentService) {}
 
   @Get('domains')
-  listDomains(@Query('ageGroup') ageGroup?: string) {
-    const parsed = ageGroup ? AgeGroupSchema.parse(ageGroup) : undefined;
-    return this.content.listDomains(parsed as AgeGroup | undefined);
+  listDomains() {
+    return this.content.listDomains();
   }
 
-  @Get('domains/:id/subdomains')
-  listSubdomains(@Param('id') id: string) {
-    return this.content.listSubdomains(id);
+  /** The catalogue, filtered. Replaces the per-domain endpoint (M10 §1). */
+  @Get('subdomains')
+  listSubdomains(@Query() query: Record<string, string>) {
+    return this.content.listSubdomains(SubdomainQuerySchema.parse(query));
+  }
+
+  /** Resolve a whole plan for the runner in one call — see getManyForPlay. */
+  @Get('subdomains/play')
+  getManyForPlay(@Query('ids') ids?: string) {
+    const list = (ids ?? '').split(',').map((id) => id.trim()).filter(Boolean);
+    return this.content.getManyForPlay(list);
   }
 
   @Get('subdomains/:id')

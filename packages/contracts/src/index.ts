@@ -6,3 +6,6 @@ export * from './game-config.js';
 export * from './content.js';
 export * from './session.js';
 export * from './reports.js';
+export * from './settings.js';
+export * from './audit.js';
+export * from './media.js';

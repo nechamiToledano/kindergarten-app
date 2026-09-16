@@ -10,8 +10,14 @@ export const UserSchema = z.object({
 });
 export type User = z.infer<typeof UserSchema>;
 
+/**
+ * The absolute floor/ceiling (M11) — `security.passwordPolicy.minLength` in
+ * SettingsService is the real, admin-configurable minimum (6–64), enforced by
+ * UsersService. This shape only rejects what can never be valid regardless of
+ * that setting.
+ */
 export const CreateUserSchema = UserSchema.omit({ id: true }).extend({
-  password: z.string().min(8).max(200),
+  password: z.string().min(6).max(200),
 });
 export type CreateUser = z.infer<typeof CreateUserSchema>;
 
@@ -21,7 +27,7 @@ export const UpdateUserSchema = z
     displayName: z.string().min(1).max(120),
     role: RoleSchema,
     kindergartenId: z.uuid().nullable(),
-    password: z.string().min(8).max(200),
+    password: z.string().min(6).max(200),
   })
   .partial();
 export type UpdateUser = z.infer<typeof UpdateUserSchema>;

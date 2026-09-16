@@ -56,12 +56,29 @@ describe('SubmitResultSchema', () => {
     rawAnswers: [],
   };
 
-  it('allows a note only after three failed attempts', () => {
-    expect(() =>
-      SubmitResultSchema.parse({ ...base, attemptsCount: 1, teacherNote: 'x' }),
-    ).toThrow();
+  /**
+   * M10 §3 — a note is allowed at any attempt count.
+   *
+   * The schema used to reject a note unless the child had failed three times.
+   * That made the most useful thing a teacher noticed during a *successful* run
+   * unrecordable, which is backwards: the note is clinical observation, not a
+   * failure report.
+   */
+  it('accepts a teacher note at any attempt count', () => {
+    expect(
+      SubmitResultSchema.parse({ ...base, attemptsCount: 1, teacherNote: 'ענה מיד' }).teacherNote,
+    ).toBe('ענה מיד');
     expect(
       SubmitResultSchema.parse({ ...base, attemptsCount: 3, teacherNote: 'x' }).teacherNote,
     ).toBe('x');
+  });
+
+  it('defaults the note to null when none is given', () => {
+    expect(SubmitResultSchema.parse({ ...base, attemptsCount: 1 }).teacherNote).toBeNull();
+  });
+
+  it('still rejects an attempt count outside the three-attempt rule', () => {
+    expect(() => SubmitResultSchema.parse({ ...base, attemptsCount: 4 })).toThrow();
+    expect(() => SubmitResultSchema.parse({ ...base, attemptsCount: -1 })).toThrow();
   });
 });

@@ -51,8 +51,8 @@ describe('reports (e2e)', () => {
     tokenA = login.tokens.accessToken;
 
     // Shared content — one domain, one subdomain, one version.
-    const domain = await prisma.ageGroupDomain.create({
-      data: { ageGroup: 'AGE_4_5', name: 'Reports Domain', orderIndex: 0 },
+    const domain = await prisma.domain.create({
+      data: { slug: `reports-${Date.now()}`, name: 'Reports Domain', orderIndex: 0 },
     });
     const config = { gameType: 'MANUAL_OBSERVATION', observationPrompt: 'Observe.' };
     const subdomain = await prisma.subdomain.create({
@@ -60,6 +60,8 @@ describe('reports (e2e)', () => {
         domainId: domain.id,
         name: 'Reports Subdomain',
         orderIndex: 0,
+        ageGroups: ['AGE_4_5'],
+        level: 1,
         teacherInstruction: 'x',
         childInstruction: 'x',
         gameType: 'MANUAL_OBSERVATION',
@@ -83,6 +85,8 @@ describe('reports (e2e)', () => {
         data: {
           clientId: crypto.randomUUID(),
           sessionId: session.id,
+          kindergartenId: kgId,
+          childId: child.id,
           subdomainId: subdomain.id,
           subdomainVersionId: version.id,
           attemptsCount: 1,
