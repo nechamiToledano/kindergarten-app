@@ -1,7 +1,7 @@
 {
-  "buildCommand": "pnpm --filter @kga/web build",
+  "buildCommand": "pnpm turbo run build --filter=@kga/web...",
   "outputDirectory": "apps/web/dist",
-  "installCommand": "pnpm install --frozen-lockfile",
+  "installCommand": "pnpm install --frozen-lockfile --prod=false",
   "framework": "vite",
   "rewrites": [
     { "source": "/api/(.*)", "destination": "https://kga-api.onrender.com/api/$1" },
