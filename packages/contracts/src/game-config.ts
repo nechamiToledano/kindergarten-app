@@ -14,6 +14,8 @@ export const GameTypeIdSchema = z.enum([
   'COMPARISON', // Spec §4.6 — added M5
   'PUZZLE', // Spec §4.7 — added M5
   'PATTERN_COPY', // Spec §4.8 — added M5
+  'SYLLABLE_COUNT', // Spec §9 (חלוקה להברות) — added M12
+  'PATTERN_SEQUENCE', // Spec §9 (מתכונת/רצף) — added M12
   'MANUAL_OBSERVATION',
 ]);
 export type GameTypeId = z.infer<typeof GameTypeIdSchema>;
@@ -28,12 +30,20 @@ const ImageOptionSchema = z.object({
   id: z.string().min(1),
   imageUrl: z.string().min(1),
   label: z.string().optional(),
+  /** Played when this option is tapped correctly — an emphasised phoneme ("פ-פ-פ-פרה") rather than the generic success chime. */
+  feedbackAudioUrl: z.string().min(1).optional(),
 });
 
 /** Spec §4.1 — two images, pick the one matching the prompt. */
 export const BinaryImageChoiceConfigSchema = z.object({
   gameType: z.literal('BINARY_IMAGE_CHOICE'),
   promptAudioUrl: z.string().min(1),
+  /**
+   * Extra clips played in order right after `promptAudioUrl`, for prompts that
+   * are a sequence of real sounds rather than a single spoken instruction
+   * (e.g. "what did you hear first, the drum or the bell?").
+   */
+  sequenceAudioUrls: z.array(z.string().min(1)).min(1).optional(),
   options: z.tuple([ImageOptionSchema, ImageOptionSchema]),
   correctOptionId: z.string().min(1),
 });
@@ -42,6 +52,8 @@ export const BinaryImageChoiceConfigSchema = z.object({
 export const MultiImageChoiceConfigSchema = z.object({
   gameType: z.literal('MULTI_IMAGE_CHOICE'),
   promptAudioUrl: z.string().min(1),
+  /** A reference image shown above the options, for match-to-sample/lotto tasks. */
+  sampleImageUrl: z.string().min(1).optional(),
   options: z.array(ImageOptionSchema).min(3).max(6),
   correctOptionIds: z.array(z.string().min(1)).min(1),
 });
@@ -65,15 +77,28 @@ export const HotspotImageConfigSchema = z.object({
   correctTargetIds: z.array(z.string().min(1)).min(1),
 });
 
-/** Spec §4.4 — drag each source onto its matching target. */
+/**
+ * Spec §4.4 — drag each source onto its matching target.
+ *
+ * `matchMode` (default `'EXACT'`) — `'EXACT'` requires each source on its
+ * declared `targetId` (letter/sound matching, where the pairing itself is the
+ * thing being tested). `'BIJECTION'` instead accepts any assignment that fills
+ * every target with at most `maxPerTarget` sources and leaves none empty — for
+ * one-to-one-correspondence tasks (Spec: "לכל עגלה חפץ") where the targets are
+ * interchangeable and only the *count* matters, not which source landed where.
+ */
 export const DragMatchConfigSchema = z.object({
   gameType: z.literal('DRAG_MATCH'),
   promptAudioUrl: z.string().min(1),
+  matchMode: z.enum(['EXACT', 'BIJECTION']).default('EXACT'),
+  maxPerTarget: z.number().int().min(1).max(4).optional(),
   pairs: z
     .array(
       z.object({
         sourceId: z.string().min(1),
         sourceImageUrl: z.string().min(1),
+        /** Real sound for this source, played when the child taps/picks it up (e.g. an animal cry). */
+        sourceAudioUrl: z.string().min(1).optional(),
         targetId: z.string().min(1),
         targetImageUrl: z.string().min(1),
       }),
@@ -89,12 +114,22 @@ export const DragMatchConfigSchema = z.object({
 export const SequentialTapConfigSchema = z.object({
   gameType: z.literal('SEQUENTIAL_TAP'),
   promptAudioUrl: z.string().min(1),
+  /** Extra clips chained after promptAudioUrl (e.g. drum, then flute) — same convention as BinaryImageChoiceConfig. */
+  sequenceAudioUrls: z.array(z.string().min(1)).min(1).optional(),
+  /**
+   * Spec: "אם לא לוחץ נכון יהיה אפקט של שגוי ולא יוכל להתקדם" — when true, a tap
+   * that doesn't match `correctSequence[taps.length]` is rejected immediately
+   * (wrong-feedback, no progress) instead of only being judged at the end.
+   */
+  validateEachStep: z.boolean().optional(),
   pads: z
     .array(
       z.object({
         id: z.string().min(1),
         color: z.string().min(1),
         label: z.string().optional(),
+        /** An image for order-of-object tasks (e.g. which instrument played first). */
+        imageUrl: z.string().min(1).optional(),
       }),
     )
     .min(2)
@@ -152,6 +187,45 @@ export const PatternCopyConfigSchema = z.object({
   oddOneOutId: z.string().min(1),
 });
 
+/**
+ * Spec (חלוקה להברות) — a word image on top, `slotCount` empty squares below
+ * (one per syllable), and `tokenCount` identical draggable tokens where
+ * `tokenCount > slotCount` — the spec always leaves exactly one decoy
+ * unplaced. Correct when exactly `slotCount` tokens have been placed into
+ * slots; which token went where doesn't matter, only the count.
+ */
+const SyllableCountObjectSchema = z.object({
+  gameType: z.literal('SYLLABLE_COUNT'),
+  promptAudioUrl: z.string().min(1),
+  wordImageUrl: z.string().min(1),
+  wordAudioUrl: z.string().min(1).optional(),
+  slotCount: z.number().int().min(2).max(5),
+  tokenCount: z.number().int().min(3).max(6),
+});
+export const SyllableCountConfigSchema = SyllableCountObjectSchema.refine(
+  (c) => c.tokenCount > c.slotCount,
+  { message: 'tokenCount must exceed slotCount (at least one decoy token)', path: ['tokenCount'] },
+);
+
+/**
+ * Spec (מתכונת/רצף) — a visible, read-only sequence prefix (e.g. red, yellow,
+ * red, yellow, red) followed by `blankCount` empty slots the child fills from
+ * `palette` in order. Correct when the filled blanks equal
+ * `correctContinuation` exactly, in order.
+ */
+const PatternSequenceObjectSchema = z.object({
+  gameType: z.literal('PATTERN_SEQUENCE'),
+  promptAudioUrl: z.string().min(1),
+  palette: z.array(z.object({ id: z.string().min(1), color: z.string().min(1), label: z.string().optional() })).min(2).max(6),
+  prefix: z.array(z.string().min(1)).min(2),
+  blankCount: z.number().int().min(1).max(8),
+  correctContinuation: z.array(z.string().min(1)).min(1).max(8),
+});
+export const PatternSequenceConfigSchema = PatternSequenceObjectSchema.refine(
+  (c) => c.blankCount === c.correctContinuation.length,
+  { message: 'blankCount must equal correctContinuation.length', path: ['blankCount'] },
+);
+
 export const ManualObservationConfigSchema = z.object({
   gameType: z.literal('MANUAL_OBSERVATION'),
   observationPrompt: z.string().min(1),
@@ -166,6 +240,8 @@ export const GameConfigSchema = z.discriminatedUnion('gameType', [
   ComparisonConfigSchema,
   PuzzleObjectSchema,
   PatternCopyConfigSchema,
+  SyllableCountObjectSchema,
+  PatternSequenceObjectSchema,
   ManualObservationConfigSchema,
 ]);
 export type GameConfig = z.infer<typeof GameConfigSchema>;

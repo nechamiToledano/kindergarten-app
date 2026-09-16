@@ -1,20 +1,19 @@
-import { createRequire } from 'node:module';
-import type { Bidi } from 'bidi-js';
-
-// bidi-js ships a CJS build with an ESM-shaped .d.ts, which NodeNext resolves
-// inconsistently for a default import — require() sidesteps the mismatch.
-const require = createRequire(import.meta.url);
-const bidiFactory = require('bidi-js') as () => Bidi;
-const bidi = bidiFactory();
-
 /**
- * pdfkit draws glyphs left-to-right with no bidi support of its own. This
- * reorders a logical Hebrew/Latin/number string (e.g. "עברית 75%") into the
- * visual order pdfkit needs to render it correctly — required for every
- * string the PDF export adapter draws.
+ * pdfkit's text layout (`EmbeddedFont.layout`, in pdfkit/js/pdfkit.js) splits a
+ * string into chunks at each literal space/tab and shapes each chunk
+ * independently through fontkit before drawing left-to-right. fontkit's own
+ * shaping already resolves bidi *within* a chunk — a lone Hebrew word comes
+ * out correctly mirrored — but pdfkit's chunk boundaries mean a multi-word
+ * phrase never gets reordered as a whole, and each space-adjacent chunk gets
+ * re-shaped on its own, scrambling word order and, for anything that isn't a
+ * single word, individual letters too.
+ *
+ * Swapping the plain spaces for U+00A0 (present in this font) keeps pdfkit
+ * from splitting the string at all, so the *entire* string goes through
+ * fontkit's shaper as one run — which resolves bidi correctly, including
+ * word order and mirrored brackets. Required for every string the PDF export
+ * adapter draws.
  */
 export function toVisualOrder(text: string): string {
-  if (!text) return text;
-  const embeddingLevels = bidi.getEmbeddingLevels(text);
-  return bidi.getReorderedString(text, embeddingLevels, 0, text.length);
+  return text.replace(/ /g, ' ');
 }

@@ -10,18 +10,21 @@ import type { AgeGroup, ChildStatus, Rating, SubdomainLevel } from '@kga/contrac
 
 export const RATING_LABELS: Record<Rating, string> = {
   PRESENT: 'קיים',
+  PRESENT_WITH_SUPPORT: 'קיים עם תיווך',
   PARTIALLY_PRESENT: 'קיים חלקית',
   ABSENT: 'לא קיים',
 };
 
-export const RATING_TONE: Record<Rating, 'present' | 'partial' | 'absent'> = {
+export const RATING_TONE: Record<Rating, 'present' | 'support' | 'partial' | 'absent'> = {
   PRESENT: 'present',
+  PRESENT_WITH_SUPPORT: 'support',
   PARTIALLY_PRESENT: 'partial',
   ABSENT: 'absent',
 };
 
 export const RATING_COLOR: Record<Rating, string> = {
   PRESENT: 'var(--color-present)',
+  PRESENT_WITH_SUPPORT: 'var(--color-support)',
   PARTIALLY_PRESENT: 'var(--color-partial)',
   ABSENT: 'var(--color-absent)',
 };

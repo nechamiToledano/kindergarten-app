@@ -38,6 +38,8 @@ export const SubdomainSchema = z.object({
   gameType: GameTypeIdSchema,
   /** Current editable config. Immutable snapshots live in SubdomainVersion (§9.3). */
   gameConfig: GameConfigSchema,
+  /** An ungraded worked example shown before the scored trial, for subdomains the spec asks to demonstrate first. */
+  demoConfig: GameConfigSchema.nullable().default(null),
 });
 export type Subdomain = z.infer<typeof SubdomainSchema>;
 
@@ -48,6 +50,7 @@ export type Subdomain = z.infer<typeof SubdomainSchema>;
  */
 export const SubdomainSummarySchema = SubdomainSchema.omit({
   gameConfig: true,
+  demoConfig: true,
   teacherInstruction: true,
   childInstruction: true,
 }).extend({

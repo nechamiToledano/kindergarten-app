@@ -43,7 +43,7 @@ export function TouchTarget({
   );
 }
 
-export type RatingValue = 'PRESENT' | 'PARTIALLY_PRESENT' | 'ABSENT';
+export type RatingValue = 'PRESENT' | 'PRESENT_WITH_SUPPORT' | 'PARTIALLY_PRESENT' | 'ABSENT';
 
 /**
  * The teacher's rating control.
@@ -64,6 +64,7 @@ export function RatingBar({
 }) {
   const options: { value: RatingValue; active: string }[] = [
     { value: 'PRESENT', active: 'border-present bg-present-soft text-present' },
+    { value: 'PRESENT_WITH_SUPPORT', active: 'border-support bg-support-soft text-support' },
     { value: 'PARTIALLY_PRESENT', active: 'border-partial bg-partial-soft text-partial' },
     { value: 'ABSENT', active: 'border-absent bg-absent-soft text-absent' },
   ];

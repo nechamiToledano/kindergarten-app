@@ -619,3 +619,71 @@ p {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* asset picker (inline control + browse modal) */
+.asset-picker {
+  display: grid;
+  gap: 0.4rem;
+}
+.asset-picker-preview img {
+  max-inline-size: 120px;
+  max-block-size: 90px;
+  object-fit: contain;
+  background: var(--color-secondary);
+  border-radius: var(--radius-sm);
+}
+.asset-picker-preview audio {
+  inline-size: 220px;
+}
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: oklch(0.1 0 0 / 0.45);
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+  z-index: 50;
+}
+.modal-card {
+  background: var(--color-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  padding: 1.25rem;
+  inline-size: min(720px, 100%);
+  max-block-size: 85vh;
+  overflow-y: auto;
+  display: grid;
+  gap: 0.9rem;
+}
+.modal-head {
+  justify-content: space-between;
+}
+.modal-grid {
+  max-block-size: 50vh;
+  overflow-y: auto;
+}
+.asset-pick {
+  border: 1px solid var(--color-border);
+  cursor: pointer;
+  text-align: start;
+}
+.asset-pick:hover {
+  border-color: var(--color-primary);
+  background: var(--color-accent);
+}
+
+/* up/down reorder arrows on a list row */
+.reorder {
+  display: grid;
+  gap: 0;
+}
+.reorder .link {
+  padding: 0 0.3rem;
+  line-height: 1.1;
+}
+.reorder .link:disabled {
+  color: var(--color-muted-foreground);
+  cursor: default;
+  opacity: 0.4;
+}

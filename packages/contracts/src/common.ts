@@ -3,8 +3,8 @@ import { z } from 'zod';
 /** Branded UUID used for every entity id crossing the network boundary. */
 export const UuidSchema = z.uuid();
 
-/** Spec §5 — קיים / קיים חלקית / לא קיים. The teacher always sets this manually. */
-export const RatingSchema = z.enum(['PRESENT', 'PARTIALLY_PRESENT', 'ABSENT']);
+/** Spec §5 — קיים / קיים עם תיווך / קיים חלקית / לא קיים. The teacher always sets this manually. */
+export const RatingSchema = z.enum(['PRESENT', 'PRESENT_WITH_SUPPORT', 'PARTIALLY_PRESENT', 'ABSENT']);
 export type Rating = z.infer<typeof RatingSchema>;
 
 /** Spec §13.1 role model. CONTENT_EDITOR deliberately has no child-data access. */

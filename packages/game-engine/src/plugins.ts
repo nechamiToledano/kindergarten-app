@@ -7,8 +7,10 @@ import {
   ManualObservationConfigSchema,
   MultiImageChoiceConfigSchema,
   PatternCopyConfigSchema,
+  PatternSequenceConfigSchema,
   PuzzleConfigSchema,
   SequentialTapConfigSchema,
+  SyllableCountConfigSchema,
   type AssetRef,
 } from '@kga/contracts';
 import type { GamePlugin } from './registry.js';
@@ -23,10 +25,18 @@ const image = (url: string): AssetRef => ({ kind: 'image', url });
 export const binaryImageChoicePlugin: GamePlugin<Infer<typeof BinaryImageChoiceConfigSchema>> = {
   id: 'BINARY_IMAGE_CHOICE',
   configSchema: BinaryImageChoiceConfigSchema,
-  score: (config, answer) => ({ correct: answer === config.correctOptionId }),
+  score: (config, answer) => {
+    const correct = answer === config.correctOptionId;
+    const feedbackAudioUrl = config.options.find((o) => o.id === answer)?.feedbackAudioUrl;
+    return { correct, detail: feedbackAudioUrl ? { feedbackAudioUrl } : undefined };
+  },
   assetsOf: (config) => [
     audio(config.promptAudioUrl),
-    ...config.options.map((o) => image(o.imageUrl)),
+    ...(config.sequenceAudioUrls ?? []).map(audio),
+    ...config.options.flatMap((o) => [
+      image(o.imageUrl),
+      ...(o.feedbackAudioUrl ? [audio(o.feedbackAudioUrl)] : []),
+    ]),
   ],
   meta: {
     label: 'Binary image choice',
@@ -39,16 +49,22 @@ export const multiImageChoicePlugin: GamePlugin<Infer<typeof MultiImageChoiceCon
   id: 'MULTI_IMAGE_CHOICE',
   configSchema: MultiImageChoiceConfigSchema,
   score: (config, answer) => {
-    const picked = Array.isArray(answer) ? [...new Set(answer.map(String))].sort() : [];
+    const rawPicked = Array.isArray(answer) ? answer.map(String) : [];
+    const picked = [...new Set(rawPicked)].sort();
     const expected = [...new Set(config.correctOptionIds)].sort();
-    return {
-      correct:
-        picked.length === expected.length && picked.every((id, i) => id === expected[i]),
-    };
+    const correct = picked.length === expected.length && picked.every((id, i) => id === expected[i]);
+    const feedbackAudioUrl = correct
+      ? config.options.find((o) => rawPicked.includes(o.id))?.feedbackAudioUrl
+      : undefined;
+    return { correct, detail: feedbackAudioUrl ? { feedbackAudioUrl } : undefined };
   },
   assetsOf: (config) => [
     audio(config.promptAudioUrl),
-    ...config.options.map((o) => image(o.imageUrl)),
+    ...(config.sampleImageUrl ? [image(config.sampleImageUrl)] : []),
+    ...config.options.flatMap((o) => [
+      image(o.imageUrl),
+      ...(o.feedbackAudioUrl ? [audio(o.feedbackAudioUrl)] : []),
+    ]),
   ],
   meta: { label: 'Multi image choice', hints: {} },
 };
@@ -83,6 +99,25 @@ export const dragMatchPlugin: GamePlugin<Infer<typeof DragMatchConfigSchema>> = 
     const links = Array.isArray(answer)
       ? (answer as Array<{ sourceId: string; targetId: string }>)
       : [];
+    if (config.matchMode === 'BIJECTION') {
+      const maxPerTarget = config.maxPerTarget ?? 1;
+      const sourceIds = new Set(config.pairs.map((p) => p.sourceId));
+      const targetIds = new Set(config.pairs.map((p) => p.targetId));
+      if (links.length !== config.pairs.length) return { correct: false };
+      const usedSources = new Set<string>();
+      const perTargetCount = new Map<string, number>();
+      for (const link of links) {
+        if (!sourceIds.has(link.sourceId) || !targetIds.has(link.targetId)) return { correct: false };
+        if (usedSources.has(link.sourceId)) return { correct: false };
+        usedSources.add(link.sourceId);
+        const count = (perTargetCount.get(link.targetId) ?? 0) + 1;
+        if (count > maxPerTarget) return { correct: false };
+        perTargetCount.set(link.targetId, count);
+      }
+      // Every target must receive at least one source — a bijection leaves none empty.
+      const correct = [...targetIds].every((id) => (perTargetCount.get(id) ?? 0) >= 1);
+      return { correct };
+    }
     const expected = new Map(config.pairs.map((p) => [p.sourceId, p.targetId]));
     const correct =
       links.length === expected.size &&
@@ -90,7 +125,11 @@ export const dragMatchPlugin: GamePlugin<Infer<typeof DragMatchConfigSchema>> = 
     return { correct };
   },
   assetsOf: (config) =>
-    config.pairs.flatMap((p) => [image(p.sourceImageUrl), image(p.targetImageUrl)]),
+    config.pairs.flatMap((p) => [
+      image(p.sourceImageUrl),
+      image(p.targetImageUrl),
+      ...(p.sourceAudioUrl ? [audio(p.sourceAudioUrl)] : []),
+    ]),
   meta: { label: 'Drag to match', hints: {} },
 };
 
@@ -105,7 +144,11 @@ export const sequentialTapPlugin: GamePlugin<Infer<typeof SequentialTapConfigSch
       correct: taps.length === expected.length && taps.every((t, i) => t === expected[i]),
     };
   },
-  assetsOf: (config) => [audio(config.promptAudioUrl)],
+  assetsOf: (config) => [
+    audio(config.promptAudioUrl),
+    ...(config.sequenceAudioUrls ?? []).map(audio),
+    ...config.pads.flatMap((p) => (p.imageUrl ? [image(p.imageUrl)] : [])),
+  ],
   meta: {
     label: 'Sequential tap',
     hints: { correctSequence: 'Pad ids in order; a pad id may repeat' },
@@ -130,8 +173,13 @@ export const comparisonPlugin: GamePlugin<Infer<typeof ComparisonConfigSchema>> 
         if (a.value === b.value) return { correct: false };
         return { correct: pick === (a.value < b.value ? a.id : b.id) };
       }
-      case 'EQUAL':
-        return { correct: pick === 'EQUAL' && a.value === b.value };
+      case 'EQUAL': {
+        // Spec: an EQUAL trial can itself be an equal pair or a decoy unequal
+        // pair ("ובשווה יהיה צמד של שווים וצמד של לא שווים") — when unequal,
+        // the correct answer is picking the larger group, not the 'EQUAL' button.
+        if (a.value === b.value) return { correct: pick === 'EQUAL' };
+        return { correct: pick === (a.value > b.value ? a.id : b.id) };
+      }
       default:
         return { correct: false };
     }
@@ -167,6 +215,52 @@ export const patternCopyPlugin: GamePlugin<Infer<typeof PatternCopyConfigSchema>
   meta: { label: 'Odd one out', hints: { oddOneOutId: 'Must match one of the option ids' } },
 };
 
+/**
+ * Spec (חלוקה להברות) — answer is the list of slot ids that received a token;
+ * correct when exactly `slotCount` slots are filled (which token went where,
+ * and which of the extra `tokenCount - slotCount` tokens was left over,
+ * doesn't matter — only the count of filled slots is scored).
+ */
+export const syllableCountPlugin: GamePlugin<Infer<typeof SyllableCountConfigSchema>> = {
+  id: 'SYLLABLE_COUNT',
+  configSchema: SyllableCountConfigSchema,
+  score: (config, answer) => {
+    const filledSlots = Array.isArray(answer) ? new Set(answer.map(String)) : new Set();
+    return { correct: filledSlots.size === config.slotCount };
+  },
+  assetsOf: (config) => [
+    audio(config.promptAudioUrl),
+    image(config.wordImageUrl),
+    ...(config.wordAudioUrl ? [audio(config.wordAudioUrl)] : []),
+  ],
+  meta: {
+    label: 'Syllable count',
+    hints: { slotCount: 'Number of syllables; tokenCount must exceed it by the decoy count' },
+  },
+};
+
+/**
+ * Spec (מתכונת/רצף) — answer is the ordered list of palette ids placed into
+ * the blanks after the visible prefix; correct on an exact ordered match
+ * against `correctContinuation`.
+ */
+export const patternSequencePlugin: GamePlugin<Infer<typeof PatternSequenceConfigSchema>> = {
+  id: 'PATTERN_SEQUENCE',
+  configSchema: PatternSequenceConfigSchema,
+  score: (config, answer) => {
+    const filled = Array.isArray(answer) ? answer.map(String) : [];
+    const expected = config.correctContinuation;
+    return {
+      correct: filled.length === expected.length && filled.every((id, i) => id === expected[i]),
+    };
+  },
+  assetsOf: (config) => [audio(config.promptAudioUrl)],
+  meta: {
+    label: 'Pattern sequence',
+    hints: { correctContinuation: 'Palette ids continuing the visible prefix, in order' },
+  },
+};
+
 /** Physical / observation-only subdomains (Spec §18.1 q5) — no game, always "correct". */
 export const manualObservationPlugin: GamePlugin<Infer<typeof ManualObservationConfigSchema>> = {
   id: 'MANUAL_OBSERVATION',
@@ -185,6 +279,8 @@ export const GAME_PLUGINS: GamePlugin[] = [
   comparisonPlugin as GamePlugin,
   puzzlePlugin as GamePlugin,
   patternCopyPlugin as GamePlugin,
+  syllableCountPlugin as GamePlugin,
+  patternSequencePlugin as GamePlugin,
   manualObservationPlugin as GamePlugin,
 ];
 

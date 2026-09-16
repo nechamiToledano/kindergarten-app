@@ -58,6 +58,13 @@ export interface SubdomainSpec {
   teacherInstruction: string;
   childInstruction: string;
   config: GameConfig;
+  /**
+   * Spec: several subdomains show a worked example before the scored trial
+   * ("בפעם הראשונה הגננת מדגימה", "לפני הבדיקה תוצג דוגמא"). When present, the
+   * child sees this config played (via the same component, ungraded — no
+   * RawAnswer is recorded) before the real `config` starts.
+   */
+  demoConfig?: GameConfig;
 }
 
 export interface DomainSpec {
@@ -156,18 +163,16 @@ const phono4to5: DomainSpec = {
       id: '55555555-0002-4002-8002-000000000002',
       name: 'זיהוי צליל סוגר',
       teacherInstruction:
-        'בַּקְּשִׁי מהילד/ה לבחור את כל התמונות שֶׁשְּׁמָן מסתיים בצליל /ם/. יש יותר מתשובה אחת נכונה.',
-      childInstruction: 'בחר/י את כל התמונות שמסתיימות בצליל ם.',
+        'הַצִּיגִי שתי תמונות. בַּקְּשִׁי מהילד/ה לבחור את התמונה שֶׁשְּׁמָהּ מסתיים בצליל /ם/.',
+      childInstruction: 'איזו תמונה מסתיימת בצליל ם? ים או כלב?',
       config: {
-        gameType: 'MULTI_IMAGE_CHOICE',
+        gameType: 'BINARY_IMAGE_CHOICE',
         promptAudioUrl: audio('צליל-סוגר-מם'),
         options: [
           { id: 'sea', imageUrl: '/assets/object-sea.png', label: 'ים' },
-          { id: 'bread', imageUrl: '/assets/food-bread.png', label: 'לחם' },
           { id: 'dog', imageUrl: '/assets/object-dog.png', label: 'כלב' },
-          { id: 'ladder', imageUrl: '/assets/object-ladder.png', label: 'סולם' },
         ],
-        correctOptionIds: ['sea', 'bread', 'ladder'],
+        correctOptionId: 'sea',
       },
     },
     {
@@ -206,13 +211,18 @@ const phono4to5: DomainSpec = {
     },
     {
       id: '55555555-0005-4005-8005-000000000005',
-      name: 'הפקת חריזה',
+      name: 'זיהוי חריזה',
       teacherInstruction:
-        'תת-תחום נצפה. אִמְרִי לילד/ה מילה (למשל "כַּד") ובַקְּשִׁי ממנו/ממנה לומר מילה שמתחרזת איתה. דַּרְגִי לפי איכות ההפקה.',
-      childInstruction: 'נסה/י לומר מילה שמתחרזת עם המילה שאמרתי.',
+        'הַצִּיגִי שני צמדי מילים: אחד מתחרז ("בלון-חלון") ואחד לא ("כיפה-שולחן"). בַּקְּשִׁי מהילד/ה להצביע על הצמד המתחרז.',
+      childInstruction: 'איזה צמד מילים מתחרז?',
       config: {
-        gameType: 'MANUAL_OBSERVATION',
-        observationPrompt: 'הילד/ה מפיק/ה מילה מתחרזת נכונה באופן עצמאי.',
+        gameType: 'BINARY_IMAGE_CHOICE',
+        promptAudioUrl: audio('חריזה-בלון-חלון-כיפה-שולחן'),
+        options: [
+          { id: 'balloon-window', imageUrl: '/assets/rhyme-balloon-window.png', label: 'בלון—חלון' },
+          { id: 'kippah-table', imageUrl: '/assets/rhyme-kippah-table.png', label: 'כיפה—שולחן' },
+        ],
+        correctOptionId: 'balloon-window',
       },
     },
     {
@@ -230,48 +240,21 @@ const phono4to5: DomainSpec = {
       id: '55555555-0007-4007-8007-000000000007',
       name: 'צליל פותח — פרה, חמור, ג׳ירפה (שלב ב)',
       teacherInstruction:
-        'קודם אִמְרִי את שמות שתי החיות בלי להדגיש צליל, ואז אִמְרִי רק את הצליל הפותח של אחת מהן. בַּקְּשִׁי מהילד/ה להצביע על החיה המתאימה.',
+        'אִמְרִי את שמות שלוש החיות בלי להדגיש צליל, ואז אִמְרִי רק את הצליל הפותח של אחת מהן. בַּקְּשִׁי מהילד/ה להצביע על החיה המתאימה. בכל לחיצה נכונה, השמיעי את שם החיה שוב בהדגשה על הצליל הפותח (למשל "פ-פ-פ-פרה") — זה מה שמלמד את הילד/ה לבודד את הצליל.',
       childInstruction: 'איזו חיה מתחילה בצליל ששמעתם?',
       config: {
-        gameType: 'BINARY_IMAGE_CHOICE',
-        promptAudioUrl: audio('צליל-פותח-פרה-חמור'),
+        gameType: 'MULTI_IMAGE_CHOICE',
+        promptAudioUrl: audio('צליל-פותח-פרה-חמור-גירפה'),
         options: [
-          { id: 'cow', imageUrl: '/assets/object-cow.png', label: 'פרה' },
-          { id: 'donkey', imageUrl: '/assets/animal-donkey.png', label: 'חמור' },
+          { id: 'cow', imageUrl: '/assets/object-cow.png', label: 'פרה', feedbackAudioUrl: audio('פ-פ-פ-פרה') },
+          { id: 'donkey', imageUrl: '/assets/animal-donkey.png', label: 'חמור', feedbackAudioUrl: audio('ח-ח-ח-חמור') },
+          { id: 'giraffe', imageUrl: '/assets/animal-giraffe.png', label: 'ג׳ירפה', feedbackAudioUrl: audio('ג-ג-ג-גירפה') },
         ],
-        correctOptionId: 'cow',
+        correctOptionIds: ['cow'],
       },
     },
   ],
 };
-
-/**
- * A second round of the same activity with the third animal (Spec: "פרה, חמור,
- * גירפה – זה החיות שאני רוצה שיהיו במשחק"). `BinaryImageChoiceConfig` is
- * two-option only, so the three animals run as two subdomain instances rather
- * than one three-way round; both are seeded so all three appear across a
- * session. Real per-tap spoken feedback with emphasis on the opening sound
- * ("פ-פ-פ-פרה") is not yet built — today the generic TTS/tone prompt plays
- * once at the start of the exercise, not on every correct tap. That needs a
- * small addition to GamePlayer's CorrectFeedback phase, not a content change.
- */
-const phono4to5Round2: SubdomainSpec = {
-  id: '55555555-0008-4008-8008-000000000008',
-  name: 'צליל פותח — חמור, ג׳ירפה (שלב ב, סבב שני)',
-  teacherInstruction:
-    'קודם אִמְרִי את שמות שתי החיות בלי להדגיש צליל, ואז אִמְרִי רק את הצליל הפותח של אחת מהן. בַּקְּשִׁי מהילד/ה להצביע על החיה המתאימה.',
-  childInstruction: 'איזו חיה מתחילה בצליל ששמעתם?',
-  config: {
-    gameType: 'BINARY_IMAGE_CHOICE',
-    promptAudioUrl: audio('צליל-פותח-חמור-גירפה'),
-    options: [
-      { id: 'donkey', imageUrl: '/assets/animal-donkey.png', label: 'חמור' },
-      { id: 'giraffe', imageUrl: '/assets/animal-giraffe.png', label: 'ג׳ירפה' },
-    ],
-    correctOptionId: 'giraffe',
-  },
-};
-phono4to5.subdomains.push(phono4to5Round2);
 
 // ── AGE 3–4 ────────────────────────────────────────────────────────────────
 const AGE_3_4: AgeGroupContent = {
@@ -326,8 +309,20 @@ const AGE_3_4: AgeGroupContent = {
             gameType: 'DRAG_MATCH',
             promptAudioUrl: audio('התאמת-קולות-חיות'),
             pairs: [
-              { sourceId: 'sound-dog', sourceImageUrl: '/assets/sound-dog.png', targetId: 'dog', targetImageUrl: '/assets/object-dog.png' },
-              { sourceId: 'sound-cat', sourceImageUrl: '/assets/sound-cat.png', targetId: 'cat', targetImageUrl: '/assets/animal-cat.png' },
+              {
+                sourceId: 'sound-dog',
+                sourceImageUrl: '/assets/sound-dog.png',
+                sourceAudioUrl: '/assets/audio/sfx-dog.mp3',
+                targetId: 'dog',
+                targetImageUrl: '/assets/object-dog.png',
+              },
+              {
+                sourceId: 'sound-cat',
+                sourceImageUrl: '/assets/sound-cat.png',
+                sourceAudioUrl: '/assets/audio/sfx-cat.mp3',
+                targetId: 'cat',
+                targetImageUrl: '/assets/animal-cat.png',
+              },
             ],
           },
         },
@@ -339,7 +334,8 @@ const AGE_3_4: AgeGroupContent = {
           childInstruction: 'מה שמעתם קודם?',
           config: {
             gameType: 'BINARY_IMAGE_CHOICE',
-            promptAudioUrl: audio('תוף-פעמון-מי-ראשון'),
+            promptAudioUrl: '/assets/audio/sfx-drum.wav',
+            sequenceAudioUrls: ['/assets/audio/sfx-bell.wav'],
             options: [
               { id: 'drum', imageUrl: '/assets/object-drum.png', label: 'תוף' },
               { id: 'bell', imageUrl: '/assets/instrument-bell.png', label: 'פעמון' },
@@ -349,13 +345,24 @@ const AGE_3_4: AgeGroupContent = {
         },
         {
           id: uuid('a3210000', 4),
-          name: 'הוראה שמיעתית פשוטה',
+          name: 'הוראה שמיעתית פשוטה — שלב א',
           teacherInstruction:
             'פעילות פיזית בלבד. תְּנִי הוראה של שלב אחד ("שִׂים/י את הכדור בסל") ובִדְקִי ביצוע. דַּרְגִי לפי הבנה וביצוע.',
           childInstruction: 'הקשיבו לגננת ובצעו את מה שהיא מבקשת.',
           config: {
             gameType: 'MANUAL_OBSERVATION',
             observationPrompt: 'הילד/ה מבצע/ת הוראה שמיעתית של שלב אחד ללא הדגמה.',
+          },
+        },
+        {
+          id: uuid('a3210000', 5),
+          name: 'הוראה שמיעתית פשוטה — שלב ב (שתי הוראות)',
+          teacherInstruction:
+            'פעילות פיזית בלבד. תְּנִי הוראה של שני שלבים ברצף אחד ("קודם תביא/י כדור, ואחר כך בובה") ובִדְקִי ביצוע נכון של שני השלבים ובסדר הנכון. דַּרְגִי לפי הבנה וביצוע.',
+          childInstruction: 'הקשיבו לגננת ובצעו את שתי ההוראות לפי הסדר.',
+          config: {
+            gameType: 'MANUAL_OBSERVATION',
+            observationPrompt: 'הילד/ה מבצע/ת רצף של שתי הוראות שמיעתיות בסדר הנכון.',
           },
         },
       ],
@@ -369,23 +376,24 @@ const AGE_3_4: AgeGroupContent = {
           id: uuid('a3310000', 1),
           name: 'התאמה — חפצים במוחש',
           teacherInstruction:
-            'פעילות פיזית (סלסלת חפצים). בַּקְּשִׁי מהילד/ה למצוא בסל שני חפצים זהים. דַּרְגִי.',
-          childInstruction: 'מצאו בסל שני חפצים שהם אותו דבר.',
+            'פעילות פיזית (סלסלת חפצים). תני לילד/ה חפץ ביד, ובַקְּשִׁי למצוא בסל את אותו החפץ בדיוק (לא רק זוג דומה בתוך הסל). דַּרְגִי.',
+          childInstruction: 'קיבלתם חפץ ביד — מצאו בסל את אותו החפץ בדיוק.',
           config: {
             gameType: 'MANUAL_OBSERVATION',
-            observationPrompt: 'הילד/ה מזהה ומתאים שני חפצים זהים מתוך סל מגוון.',
+            observationPrompt: 'הילד/ה מוצא/ת בסל את החפץ הזהה לחפץ שקיבל/ה ביד.',
           },
         },
         {
           id: uuid('a3310000', 2),
           name: 'התאמת תמונות (לוטו)',
-          teacherInstruction: 'בַּקְּשִׁי מהילד/ה למצוא בלוח את התמונה הזהה לתמונת הדוגמה.',
+          teacherInstruction: 'בַּקְּשִׁי מהילד/ה למצוא בלוח את התמונה הזהה לתמונת הדוגמה שלמעלה.',
           childInstruction: 'איזו תמונה זהה לתמונה שלמעלה?',
           config: {
             gameType: 'MULTI_IMAGE_CHOICE',
             promptAudioUrl: audio('לוטו-מצא-זהה-כדור'),
+            sampleImageUrl: '/assets/object-ball.png',
             options: [
-              { id: 'ball', imageUrl: '/assets/object-ball.png', label: 'כדור' },
+              { id: 'apple', imageUrl: '/assets/object-apple.png', label: 'תפוח' },
               { id: 'doll', imageUrl: '/assets/object-doll.png', label: 'בובה' },
               { id: 'train', imageUrl: '/assets/object-train.png', label: 'רכבת' },
               { id: 'ball-match', imageUrl: '/assets/object-ball.png', label: 'כדור' },
@@ -413,15 +421,12 @@ const AGE_3_4: AgeGroupContent = {
         {
           id: uuid('a3310000', 4),
           name: 'פאזל 4 חלקים',
-          teacherInstruction: 'בַּקְּשִׁי מהילד/ה להרכיב את הפאזל. הַתְחִילִי בפאזל של 2 חלקים ואז 4.',
-          childInstruction: 'הקישו על חלק למטה, ואז הקישו על המשבצת שלו למעלה.',
+          teacherInstruction:
+            'פעילות פיזית עם פאזל עץ אמיתי על השולחן. הַתְחִילִי בחיבור 2 חלקים, ואז הגישי פאזל של 4 חלקים. דַּרְגִי: קיים (עצמאי) / קיים עם תיווך (בעזרת רמז/הדגמה) / קיים חלקית / לא קיים.',
+          childInstruction: 'הרכיבו את הפאזל על השולחן.',
           config: {
-            gameType: 'PUZZLE',
-            promptAudioUrl: audio('פאזל-4-חיה'),
-            imageUrl: '/assets/puzzle-cow.png',
-            rows: 2,
-            cols: 2,
-            pieceCount: 4,
+            gameType: 'MANUAL_OBSERVATION',
+            observationPrompt: 'הילד/ה מרכיב/ה פאזל עץ של 4 חלקים, עצמאית או בעזרת תיווך.',
           },
         },
       ],
@@ -454,6 +459,21 @@ const AGE_3_4: AgeGroupContent = {
             items: [
               { id: 'group-many', imageUrl: '/assets/count-5.png', value: 5, label: 'הרבה' },
               { id: 'group-few', imageUrl: '/assets/count-1.png', value: 1, label: 'מעט' },
+            ],
+          },
+        },
+        {
+          id: uuid('a3410000', 4),
+          name: 'גדול / קטן',
+          teacherInstruction: 'הַצִּיגִי שני עצמים בגודל שונה. בַּקְּשִׁי מהילד/ה לבחור את הגדול.',
+          childInstruction: 'מי גדול יותר?',
+          config: {
+            gameType: 'COMPARISON',
+            promptAudioUrl: audio('מי-גדול-3-4'),
+            comparisonType: 'BIGGER',
+            items: [
+              { id: 'elephant', imageUrl: '/assets/animal-elephant.png', value: 10, label: 'פיל' },
+              { id: 'mouse', imageUrl: '/assets/animal-mouse.png', value: 1, label: 'עכבר' },
             ],
           },
         },
@@ -505,33 +525,53 @@ const AGE_4_5: AgeGroupContent = {
         {
           id: uuid('a4210000', 2),
           name: 'זיכרון סדר צלילים — שני כלים',
-          teacherInstruction: 'הַשְׁמִיעִי תוף ואז חליל. בַּקְּשִׁי מהילד/ה לבחור מה נשמע אחרון.',
-          childInstruction: 'מה שמעתם אחרון?',
+          teacherInstruction:
+            'הַשְׁמִיעִי תוף ואז חליל. בַּקְּשִׁי מהילד/ה להקיש על הכלים לפי הסדר ששמע/ה — קודם תוף, ואז חליל.',
+          childInstruction: 'מה שמעתם קודם, ומה אחר כך? הקישו לפי הסדר.',
           config: {
-            gameType: 'BINARY_IMAGE_CHOICE',
-            promptAudioUrl: audio('תוף-חליל-מי-אחרון'),
-            options: [
-              { id: 'drum', imageUrl: '/assets/object-drum.png', label: 'תוף' },
-              { id: 'flute', imageUrl: '/assets/instrument-flute.png', label: 'חליל' },
+            gameType: 'SEQUENTIAL_TAP',
+            promptAudioUrl: '/assets/audio/sfx-drum.wav',
+            sequenceAudioUrls: ['/assets/audio/sfx-flute.wav'],
+            pads: [
+              { id: 'drum', color: '#b23a3a', label: 'תוף', imageUrl: '/assets/object-drum.png' },
+              { id: 'flute', color: '#3e6e8e', label: 'חליל', imageUrl: '/assets/instrument-flute.png' },
             ],
-            correctOptionId: 'flute',
+            correctSequence: ['drum', 'flute'],
           },
         },
         {
           id: uuid('a4210000', 3),
-          name: 'זיכרון צבעים ברצף',
+          name: 'זיכרון צבעים ברצף — שלב א (שני צבעים)',
           teacherInstruction:
-            'הַשְׁמִיעִי הוראה קולית של רצף צבעים ("אדום, כחול, אדום"). בַּקְּשִׁי מהילד/ה להקיש על הצבעים באותו סדר.',
+            'הַשְׁמִיעִי הוראה קולית של שני צבעים ("קודם תלחץ/י על הכחול, ואז על האדום"). אם הילד/ה לוחץ/ת על צבע שגוי, יופיע אפקט שגיאה והוא/היא לא יוכל/תוכל להתקדם עד שילחץ/תלחץ נכון.',
           childInstruction: 'הקישו על הצבעים לפי הסדר ששמעתם.',
           config: {
             gameType: 'SEQUENTIAL_TAP',
-            promptAudioUrl: audio('רצף-צבעים-אדום-כחול-אדום'),
+            promptAudioUrl: audio('רצף-צבעים-כחול-אדום'),
+            validateEachStep: true,
+            pads: [
+              { id: 'red', color: '#ef4444', label: 'אדום' },
+              { id: 'blue', color: '#3b82f6', label: 'כחול' },
+            ],
+            correctSequence: ['blue', 'red'],
+          },
+        },
+        {
+          id: uuid('a4210000', 4),
+          name: 'זיכרון צבעים ברצף — שלב ב (שלושה צבעים)',
+          teacherInstruction:
+            'הַשְׁמִיעִי הוראה קולית של רצף שלושה צבעים שונים ("כחול, אדום, ירוק"). אם הילד/ה לוחץ/ת על צבע שגוי, יופיע אפקט שגיאה והוא/היא לא יוכל/תוכל להתקדם עד שילחץ/תלחץ נכון; לחיצה נכונה משמיעה צליל שמח ומאפשרת המשך.',
+          childInstruction: 'הקישו על הצבעים לפי הסדר ששמעתם.',
+          config: {
+            gameType: 'SEQUENTIAL_TAP',
+            promptAudioUrl: audio('רצף-צבעים-כחול-אדום-ירוק'),
+            validateEachStep: true,
             pads: [
               { id: 'red', color: '#ef4444', label: 'אדום' },
               { id: 'blue', color: '#3b82f6', label: 'כחול' },
               { id: 'green', color: '#10b981', label: 'ירוק' },
             ],
-            correctSequence: ['red', 'blue', 'red'],
+            correctSequence: ['blue', 'red', 'green'],
           },
         },
       ],
@@ -545,15 +585,18 @@ const AGE_4_5: AgeGroupContent = {
           id: uuid('a4310000', 1),
           name: 'מתכונת / רצף',
           teacherInstruction:
-            'לפני הילד/ה רצף צבעים חסר. בַּקְּשִׁי לגרור את הצבע המתאים כדי להשלים את הרצף (אדום־כחול־אדום־כחול...).',
-          childInstruction: 'הקישו על המשבצת החסרה, ואז הקישו על הצבע המתאים.',
+            'הראי לילד/ה את חמשת העיגולים (אדום-צהוב-אדום-צהוב-אדום) והסבירי שזו "מתכונת". בַּקְּשִׁי להמשיך את הרצף בארבע המשבצות הריקות, לפי הסדר, מתוך הצבעים למטה.',
+          childInstruction: 'המשיכו את הרצף — הקישו על הצבעים לפי הסדר.',
           config: {
-            gameType: 'DRAG_MATCH',
+            gameType: 'PATTERN_SEQUENCE',
             promptAudioUrl: audio('השלמת-רצף-צבעים'),
-            pairs: [
-              { sourceId: 'slot-1', sourceImageUrl: '/assets/slot-1.png', targetId: 'red', targetImageUrl: '/assets/pattern-token-red.png' },
-              { sourceId: 'slot-2', sourceImageUrl: '/assets/slot-2.png', targetId: 'blue', targetImageUrl: '/assets/token-blue.png' },
+            palette: [
+              { id: 'red', color: '#ef4444', label: 'אדום' },
+              { id: 'yellow', color: '#f59e0b', label: 'צהוב' },
             ],
+            prefix: ['red', 'yellow', 'red', 'yellow', 'red'],
+            blankCount: 4,
+            correctContinuation: ['yellow', 'red', 'yellow', 'red'],
           },
         },
         {
@@ -576,15 +619,12 @@ const AGE_4_5: AgeGroupContent = {
         {
           id: uuid('a4310000', 3),
           name: 'פאזל 6 חלקים',
-          teacherInstruction: 'בַּקְּשִׁי מהילד/ה להרכיב פאזל של 6 חלקים.',
-          childInstruction: 'הקישו על חלק למטה, ואז הקישו על המשבצת שלו למעלה.',
+          teacherInstruction:
+            'פעילות פיזית עם פאזל עץ אמיתי על השולחן, 6 חלקים. דַּרְגִי: קיים (עצמאי) / קיים עם תיווך (בעזרת רמז/הדגמה) / קיים חלקית / לא קיים.',
+          childInstruction: 'הרכיבו את הפאזל על השולחן.',
           config: {
-            gameType: 'PUZZLE',
-            promptAudioUrl: audio('פאזל-6'),
-            imageUrl: '/assets/puzzle-house.png',
-            rows: 2,
-            cols: 3,
-            pieceCount: 6,
+            gameType: 'MANUAL_OBSERVATION',
+            observationPrompt: 'הילד/ה מרכיב/ה פאזל עץ של 6 חלקים, עצמאית או בעזרת תיווך.',
           },
         },
         {
@@ -645,15 +685,18 @@ const AGE_4_5: AgeGroupContent = {
         {
           id: uuid('a4410000', 3),
           name: 'התאמה חד-חד-ערכית — עגלת סופר',
-          teacherInstruction: 'בַּקְּשִׁי מהילד/ה לגרור כל מוצר אל העגלה המתאימה לו.',
-          childInstruction: 'הקישו על מוצר למעלה, ואז הקישו על העגלה המתאימה לו למטה.',
+          teacherInstruction:
+            'בַּקְּשִׁי מהילד/ה לגרור כל מוצר לתוך אחת מארבע העגלות, מוצר אחד לכל עגלה — אין עגלה "נכונה" ספציפית לכל מוצר, כל שיוך של מוצר אחד לכל עגלה תקין.',
+          childInstruction: 'הקישו על מוצר למעלה, ואז הקישו על עגלה ריקה למטה — מוצר אחד לכל עגלה.',
           config: {
             gameType: 'DRAG_MATCH',
             promptAudioUrl: audio('עגלת-סופר'),
+            matchMode: 'BIJECTION',
             pairs: [
-              { sourceId: 'milk', sourceImageUrl: '/assets/food-milk.png', targetId: 'cart-milk', targetImageUrl: '/assets/food-cart.png' },
-              { sourceId: 'bread', sourceImageUrl: '/assets/food-bread.png', targetId: 'cart-bread', targetImageUrl: '/assets/food-cart.png' },
-              { sourceId: 'eggs', sourceImageUrl: '/assets/food-eggs.png', targetId: 'cart-eggs', targetImageUrl: '/assets/food-cart.png' },
+              { sourceId: 'milk', sourceImageUrl: '/assets/food-milk.png', targetId: 'cart-1', targetImageUrl: '/assets/food-cart.png' },
+              { sourceId: 'bread', sourceImageUrl: '/assets/food-bread.png', targetId: 'cart-2', targetImageUrl: '/assets/food-cart.png' },
+              { sourceId: 'eggs', sourceImageUrl: '/assets/food-eggs.png', targetId: 'cart-3', targetImageUrl: '/assets/food-cart.png' },
+              { sourceId: 'apple', sourceImageUrl: '/assets/object-apple.png', targetId: 'cart-4', targetImageUrl: '/assets/food-cart.png' },
             ],
           },
         },
@@ -683,10 +726,35 @@ const AGE_5_6: AgeGroupContent = {
       orderIndex: 0,
       subdomains: [
         {
+          id: uuid('a5110000', 8),
+          name: 'זיהוי חריזה',
+          teacherInstruction:
+            'הַצִּיגִי שני צמדי מילים: אחד מתחרז ("בלון-חלון") ואחד לא ("כיפה-שולחן"). בַּקְּשִׁי מהילד/ה להצביע על הצמד המתחרז.',
+          childInstruction: 'איזה צמד מילים מתחרז?',
+          config: {
+            gameType: 'BINARY_IMAGE_CHOICE',
+            promptAudioUrl: audio('חריזה-בלון-חלון-כיפה-שולחן-5-6'),
+            options: [
+              { id: 'balloon-window', imageUrl: '/assets/rhyme-balloon-window.png', label: 'בלון—חלון' },
+              { id: 'kippah-table', imageUrl: '/assets/rhyme-kippah-table.png', label: 'כיפה—שולחן' },
+            ],
+            correctOptionId: 'balloon-window',
+          },
+          demoConfig: {
+            gameType: 'BINARY_IMAGE_CHOICE',
+            promptAudioUrl: audio('דוגמה-חריזה-דוב-אוהב'),
+            options: [
+              { id: 'demo-rhyme', imageUrl: '/assets/rhyme-balloon-window.png', label: 'דוב—אוהב (מתחרז)' },
+              { id: 'demo-no-rhyme', imageUrl: '/assets/rhyme-kippah-table.png', label: 'שולחן—כיסא (לא מתחרז)' },
+            ],
+            correctOptionId: 'demo-rhyme',
+          },
+        },
+        {
           id: uuid('a5110000', 1),
           name: 'צליל פותח — זיהוי מתוך שלוש',
           teacherInstruction:
-            'הַשְׁמִיעִי את הצליל /מ/. בַּקְּשִׁי מהילד/ה לבחור מבין שלוש תמונות את זו שֶׁשְּׁמָהּ מתחיל ב-/מ/, ואז לשַׁיֵּם אותה בעצמו/ה.',
+            'בפעם הראשונה, הדגימי בעצמך: הַשְׁמִיעִי את הצליל ולחצי בעצמך על התמונה הנכונה. בפעם השנייה, הַשְׁמִיעִי את הצליל /מ/ ובַקְּשִׁי מהילד/ה לבחור מבין שלוש תמונות את זו שֶׁשְּׁמָהּ מתחיל ב-/מ/, ואז לשַׁיֵּם אותה בעצמו/ה.',
           childInstruction: 'איזו מילה מתחילה ב-מ? געו ואז אמרו את שמה.',
           config: {
             gameType: 'MULTI_IMAGE_CHOICE',
@@ -698,37 +766,86 @@ const AGE_5_6: AgeGroupContent = {
             ],
             correctOptionIds: ['umbrella'],
           },
+          demoConfig: {
+            gameType: 'MULTI_IMAGE_CHOICE',
+            promptAudioUrl: audio('דוגמה-צליל-פותח-ת'),
+            options: [
+              { id: 'demo-apple', imageUrl: '/assets/object-apple.png', label: 'תפוח' },
+              { id: 'demo-doll', imageUrl: '/assets/object-doll.png', label: 'בובה' },
+              { id: 'demo-ball', imageUrl: '/assets/object-ball.png', label: 'כדור' },
+            ],
+            correctOptionIds: ['demo-apple'],
+          },
+        },
+        {
+          id: uuid('a5110000', 7),
+          name: 'צליל פותח — שיום',
+          teacherInstruction:
+            'הַצִּיגִי תמונה ובַקְּשִׁי מהילד/ה לומר בקול איך המילה מתחילה (למשל תמונת פרה — "פ"). דַּרְגִי לפי דיוק השיום, בנפרד מהזיהוי.',
+          childInstruction: 'איך מתחילה המילה? אמרו את הצליל.',
+          config: {
+            gameType: 'MANUAL_OBSERVATION',
+            observationPrompt: 'הילד/ה משַׁיֵּם את הצליל הפותח של מילה נתונה בעצמו/ה.',
+          },
         },
         {
           id: uuid('a5110000', 2),
           name: 'מילה ארוכה / קצרה',
           teacherInstruction:
-            'הַשְׁמִיעִי שתי מילים (רַכֶּבֶת / אוֹטוֹ). בַּקְּשִׁי מהילד/ה לבחור איזו מילה ארוכה יותר.',
-          childInstruction: 'איזו מילה ארוכה יותר?',
+            'הסבירי לילד/ה: מילה ארוכה זה כמו רכבת ארוכה, מילה קצרה זה כמו אוטו. אִמְרִי מילה (למשל "תַּרְנְגוֹלֶת") ובַקְּשִׁי מהילד/ה ללחוץ על הרכבת אם המילה ארוכה, או על האוטו אם היא קצרה.',
+          childInstruction: 'הקשיבו למילה — אם היא ארוכה הקישו על הרכבת, ואם קצרה הקישו על האוטו.',
           config: {
             gameType: 'BINARY_IMAGE_CHOICE',
-            promptAudioUrl: audio('ארוך-קצר-רכבת-אוטו'),
+            promptAudioUrl: audio('מילה-תרנגולת'),
             options: [
-              { id: 'train', imageUrl: '/assets/object-train.png', label: 'רכבת' },
-              { id: 'car', imageUrl: '/assets/car-a.png', label: 'אוטו' },
+              { id: 'train', imageUrl: '/assets/object-train.png', label: 'רכבת — מילה ארוכה' },
+              { id: 'car', imageUrl: '/assets/car-a.png', label: 'אוטו — מילה קצרה' },
             ],
             correctOptionId: 'train',
+          },
+        },
+        {
+          id: uuid('a5110000', 5),
+          name: 'מילה ארוכה / קצרה — מילה קצרה',
+          teacherInstruction:
+            'אותה פעילות עם מילה קצרה (למשל "כַּד"). בַּקְּשִׁי מהילד/ה ללחוץ על הרכבת אם המילה ארוכה, או על האוטו אם היא קצרה.',
+          childInstruction: 'הקשיבו למילה — אם היא ארוכה הקישו על הרכבת, ואם קצרה הקישו על האוטו.',
+          config: {
+            gameType: 'BINARY_IMAGE_CHOICE',
+            promptAudioUrl: audio('מילה-כד'),
+            options: [
+              { id: 'train', imageUrl: '/assets/object-train.png', label: 'רכבת — מילה ארוכה' },
+              { id: 'car', imageUrl: '/assets/car-a.png', label: 'אוטו — מילה קצרה' },
+            ],
+            correctOptionId: 'car',
           },
         },
         {
           id: uuid('a5110000', 3),
           name: 'חלוקה להברות (3 הברות)',
           teacherInstruction:
-            'בַּקְּשִׁי מהילד/ה לגרור עיגול אחד לכל הברה במילה. הַתְחִילִי במילים בנות 3 הברות (מְ-כוֹ-נִית).',
-          childInstruction: 'הקישו על עיגול למעלה, ואז הקישו על ההברה שהוא שייך לה למטה.',
+            'הראי לילד/ה תמונה של בננה. בַּקְּשִׁי לגרור עיגול אחד לכל ריבוע ריק תוך אמירת ההברה בקול (בַּ-נָ-נָה) — יש עיגול אחד מיותר במתכוון.',
+          childInstruction: 'תגידו את המילה בהברות וגררו עיגול לכל ריבוע — בּ-נ-נה.',
           config: {
-            gameType: 'DRAG_MATCH',
-            promptAudioUrl: audio('הברות-מכונית'),
-            pairs: [
-              { sourceId: 'circle-a', sourceImageUrl: '/assets/token-teal.png', targetId: 'syllable-1', targetImageUrl: '/assets/syllable-1.svg' },
-              { sourceId: 'circle-b', sourceImageUrl: '/assets/token-teal.png', targetId: 'syllable-2', targetImageUrl: '/assets/syllable-2.svg' },
-              { sourceId: 'circle-c', sourceImageUrl: '/assets/token-teal.png', targetId: 'syllable-3', targetImageUrl: '/assets/syllable-3.svg' },
-            ],
+            gameType: 'SYLLABLE_COUNT',
+            promptAudioUrl: audio('הברות-בננה'),
+            wordImageUrl: '/assets/syllable-banana.png',
+            slotCount: 3,
+            tokenCount: 4,
+          },
+        },
+        {
+          id: uuid('a5110000', 6),
+          name: 'חלוקה להברות (4 הברות)',
+          teacherInstruction:
+            'הראי לילד/ה תמונה של קרוסלה. בַּקְּשִׁי לגרור עיגול אחד לכל ריבוע ריק תוך אמירת ההברה בקול (קָ-רוּ-סֶ-לָה) — יש עיגול אחד מיותר במתכוון.',
+          childInstruction: 'תגידו את המילה בהברות וגררו עיגול לכל ריבוע — ק-רו-סה-לה.',
+          config: {
+            gameType: 'SYLLABLE_COUNT',
+            promptAudioUrl: audio('הברות-קרוסלה'),
+            wordImageUrl: '/assets/syllable-carousel.png',
+            slotCount: 4,
+            tokenCount: 5,
           },
         },
         {
@@ -753,17 +870,19 @@ const AGE_5_6: AgeGroupContent = {
           id: uuid('a5210000', 1),
           name: 'מתכונת רצף — 3 צבעים',
           teacherInstruction:
-            'הַשְׁמִיעִי רצף של שלושה צבעים חוזר. בַּקְּשִׁי מהילד/ה להקיש על הצבעים בסדר הנכון פעמיים.',
+            'הראי לילד/ה את חמשת העיגולים (אדום-צהוב-כחול-אדום-צהוב) והסבירי שזו "מתכונת" שחוזרת על עצמה. בַּקְּשִׁי להמשיך את הרצף בשש המשבצות הריקות, לפי הסדר.',
           childInstruction: 'המשיכו את הרצף — הקישו על הצבעים בסדר.',
           config: {
-            gameType: 'SEQUENTIAL_TAP',
+            gameType: 'PATTERN_SEQUENCE',
             promptAudioUrl: audio('רצף-3-צבעים'),
-            pads: [
+            palette: [
               { id: 'red', color: '#ef4444', label: 'אדום' },
-              { id: 'blue', color: '#3b82f6', label: 'כחול' },
               { id: 'yellow', color: '#f59e0b', label: 'צהוב' },
+              { id: 'blue', color: '#3b82f6', label: 'כחול' },
             ],
-            correctSequence: ['red', 'blue', 'yellow', 'red', 'blue', 'yellow'],
+            prefix: ['red', 'yellow', 'blue', 'red', 'yellow'],
+            blankCount: 6,
+            correctContinuation: ['blue', 'red', 'yellow', 'blue', 'red', 'yellow'],
           },
         },
         {
@@ -784,15 +903,23 @@ const AGE_5_6: AgeGroupContent = {
         {
           id: uuid('a5210000', 3),
           name: 'פאזל 8 חלקים',
-          teacherInstruction: 'בַּקְּשִׁי מהילד/ה להרכיב פאזל של 8 חלקים.',
-          childInstruction: 'הקישו על חלק למטה, ואז הקישו על המשבצת שלו למעלה.',
+          teacherInstruction:
+            'פעילות פיזית עם פאזל עץ אמיתי על השולחן, 8 חלקים. דַּרְגִי: קיים (עצמאי) / קיים עם תיווך (בעזרת רמז/הדגמה) / קיים חלקית / לא קיים.',
+          childInstruction: 'הרכיבו את הפאזל על השולחן.',
           config: {
-            gameType: 'PUZZLE',
-            promptAudioUrl: audio('פאזל-8'),
-            imageUrl: '/assets/puzzle-flower.png',
-            rows: 2,
-            cols: 4,
-            pieceCount: 8,
+            gameType: 'MANUAL_OBSERVATION',
+            observationPrompt: 'הילד/ה מרכיב/ה פאזל עץ של 8 חלקים, עצמאית או בעזרת תיווך.',
+          },
+        },
+        {
+          id: uuid('a5210000', 4),
+          name: 'פאזל 10 חלקים',
+          teacherInstruction:
+            'פעילות פיזית עם פאזל עץ אמיתי על השולחן, 10 חלקים. דַּרְגִי: קיים (עצמאי) / קיים עם תיווך (בעזרת רמז/הדגמה) / קיים חלקית / לא קיים.',
+          childInstruction: 'הרכיבו את הפאזל על השולחן.',
+          config: {
+            gameType: 'MANUAL_OBSERVATION',
+            observationPrompt: 'הילד/ה מרכיב/ה פאזל עץ של 10 חלקים, עצמאית או בעזרת תיווך.',
           },
         },
       ],
@@ -820,10 +947,21 @@ const AGE_5_6: AgeGroupContent = {
           },
         },
         {
-          id: uuid('a5310000', 2),
-          name: 'גדול / קטן / שווה — השוואת כמויות',
+          id: uuid('a5310000', 7),
+          name: 'זיהוי ספרות — שיום',
           teacherInstruction:
-            'הַצִּיגִי שתי קבוצות עצמים בכמות זהה. בַּקְּשִׁי מהילד/ה לבחור אם באחת יש יותר, או להקיש "שווה".',
+            'הַצִּיגִי ספרה בודדת ובַקְּשִׁי מהילד/ה לשַׁיֵּם אותה בקול. דַּרְגִי לפי דיוק השיום, בנפרד מהזיהוי.',
+          childInstruction: 'איזו ספרה זו? אמרו את שמה.',
+          config: {
+            gameType: 'MANUAL_OBSERVATION',
+            observationPrompt: 'הילד/ה משַׁיֵּם ספרות בודדות מ-1 עד 10 בעצמו/ה.',
+          },
+        },
+        {
+          id: uuid('a5310000', 2),
+          name: 'גדול / קטן / שווה — השוואת כמויות (שוות)',
+          teacherInstruction:
+            'הַצִּיגִי שתי קבוצות עצמים בכמות זהה. בַּקְּשִׁי מהילד/ה להקיש "שווה".',
           childInstruction: 'האם הכמויות שוות, או שבאחת יש יותר?',
           config: {
             gameType: 'COMPARISON',
@@ -836,17 +974,51 @@ const AGE_5_6: AgeGroupContent = {
           },
         },
         {
+          id: uuid('a5310000', 5),
+          name: 'גדול / קטן / שווה — השוואת כמויות (לא שוות)',
+          teacherInstruction:
+            'הַצִּיגִי שתי קבוצות עצמים בכמות שונה. בַּקְּשִׁי מהילד/ה להקיש על הקבוצה עם יותר עצמים, ולא על "שווה" — בודקת שהילד/ה מבחין/ה בין שווה ללא-שווה, לא רק בוחר/ת "שווה" תמיד.',
+          childInstruction: 'האם הכמויות שוות, או שבאחת יש יותר?',
+          config: {
+            gameType: 'COMPARISON',
+            promptAudioUrl: audio('שווה-או-יותר-לא-שוות'),
+            comparisonType: 'EQUAL',
+            items: [
+              { id: 'group-c', imageUrl: '/assets/count-4.png', value: 4, label: 'קבוצה א' },
+              { id: 'group-d', imageUrl: '/assets/count-5.png', value: 5, label: 'קבוצה ב' },
+            ],
+          },
+        },
+        {
+          id: uuid('a5310000', 6),
+          name: 'גדול / קטן — השוואת כמויות',
+          teacherInstruction:
+            'הַצִּיגִי שתי קבוצות עצמים בכמות שונה. בַּקְּשִׁי מהילד/ה לבחור את הקבוצה עם יותר עצמים.',
+          childInstruction: 'איזו קבוצה גדולה יותר?',
+          config: {
+            gameType: 'COMPARISON',
+            promptAudioUrl: audio('קבוצה-גדולה-יותר'),
+            comparisonType: 'BIGGER',
+            items: [
+              { id: 'group-e', imageUrl: '/assets/count-three-apples.png', value: 3, label: 'קבוצה א' },
+              { id: 'group-f', imageUrl: '/assets/count-5.png', value: 5, label: 'קבוצה ב' },
+            ],
+          },
+        },
+        {
           id: uuid('a5310000', 3),
           name: 'תפיסת כמות עד 5',
-          teacherInstruction: 'הַשְׁמִיעִי "חמש". בַּקְּשִׁי מהילד/ה לבחור את הכרטיס עם חמישה עצמים.',
+          teacherInstruction:
+            'הַשְׁמִיעִי "חמש". בַּקְּשִׁי מהילד/ה לבחור מבין ארבעה כרטיסים (בטווח אחת עד חמש) את זה עם חמישה עצמים.',
           childInstruction: 'איפה חמש?',
           config: {
             gameType: 'MULTI_IMAGE_CHOICE',
             promptAudioUrl: audio('כמות-חמש'),
             options: [
+              { id: 'count-1', imageUrl: '/assets/count-1.png', label: 'אחת' },
+              { id: 'count-3', imageUrl: '/assets/count-three-apples.png', label: 'שלוש' },
               { id: 'count-4', imageUrl: '/assets/count-4.png', label: 'ארבע' },
               { id: 'count-5', imageUrl: '/assets/count-5.png', label: 'חמש' },
-              { id: 'count-6', imageUrl: '/assets/count-6.png', label: 'שש' },
             ],
             correctOptionIds: ['count-5'],
           },

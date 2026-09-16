@@ -137,6 +137,7 @@ export class ChildrenService {
             assessed: tally.assessed,
             absent: tally.absent,
             partial: tally.partial,
+            presentWithSupport: tally.presentWithSupport,
             hasOpenSession: !!stats?.openSessionId,
             hasAnySession: !!stats?.lastSessionAt,
           },
@@ -203,6 +204,7 @@ export class ChildrenService {
           domainSlug: domain.slug,
           icon: domain.icon,
           present: tally.present,
+          presentWithSupport: tally.presentWithSupport,
           partial: tally.partial,
           absent: tally.absent,
           assessed: tally.assessed,
@@ -272,6 +274,7 @@ export class ChildrenService {
         total: row._count.plan,
         done: row.results.length,
         present: tally.present,
+        presentWithSupport: tally.presentWithSupport,
         partial: tally.partial,
         absent: tally.absent,
       };

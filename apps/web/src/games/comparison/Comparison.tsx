@@ -23,6 +23,7 @@ export function Comparison({ config, disabled, onAnswer }: GameComponentProps<Co
           />
         ))}
       </OptionGrid>
+      {config.comparisonType === 'EQUAL' && (
       <button
         type="button"
         className="game-tap-pad"
@@ -42,6 +43,7 @@ export function Comparison({ config, disabled, onAnswer }: GameComponentProps<Co
       >
         שווה
       </button>
+      )}
     </div>
   );
 }

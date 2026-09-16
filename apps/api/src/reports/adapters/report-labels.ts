@@ -6,6 +6,7 @@ import type { AgeGroup, Rating } from '@kga/contracts';
  */
 export const RATING_LABELS: Record<Rating, string> = {
   PRESENT: 'קיים',
+  PRESENT_WITH_SUPPORT: 'קיים עם תיווך',
   PARTIALLY_PRESENT: 'קיים חלקית',
   ABSENT: 'לא קיים',
 };

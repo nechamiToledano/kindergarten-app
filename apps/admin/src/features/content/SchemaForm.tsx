@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { AssetPicker } from '../media/AssetPicker';
 
 /**
  * §14.1 — the admin editor is *generated* from a game plugin's `configSchema`,
@@ -41,6 +42,20 @@ function deref(schema: JsonSchema, ctx: Ctx): JsonSchema {
 
 function typeOf(schema: JsonSchema): string | undefined {
   return Array.isArray(schema.type) ? schema.type.find((t) => t !== 'null') : schema.type;
+}
+
+/**
+ * Every asset field across game-config.ts follows one naming convention:
+ * ends in "Url"/"Urls" and names its kind (…Image…/…Audio…). That lets the
+ * generated form swap a plain text box for the media-library picker without
+ * each game plugin having to declare it.
+ */
+function assetKindOf(path: string): 'image' | 'audio' | null {
+  const key = (path.split('.').pop() ?? '').replace(/\[\]$/, '');
+  if (!/url$/i.test(key)) return null;
+  if (/audio/i.test(key)) return 'audio';
+  if (/image/i.test(key)) return 'image';
+  return null;
 }
 
 function blankValue(schema: JsonSchema, ctx: Ctx): unknown {
@@ -148,6 +163,16 @@ function Field({
   }
 
   if (t === 'string') {
+    const assetKind = assetKindOf(path);
+    if (assetKind) {
+      return (
+        <div className="sf-field">
+          <span className="sf-label">{label}</span>
+          <AssetPicker kind={assetKind} value={String(value ?? '')} onChange={onChange} />
+          {hint && <span className="sf-hint">{hint}</span>}
+        </div>
+      );
+    }
     const long = (s.maxLength ?? 0) > 120 || label.toLowerCase().includes('instruction');
     return (
       <label className="sf-field">

@@ -71,6 +71,7 @@ export function LibraryPreviewScreen() {
           teacherInstruction: stage.subdomain.teacherInstruction,
           childInstruction: stage.subdomain.childInstruction,
           gameConfig: stage.subdomain.gameConfig,
+          demoConfig: stage.subdomain.demoConfig,
         }}
         onComplete={(result) => setStage({ kind: 'done', result, subdomain: stage.subdomain })}
       />

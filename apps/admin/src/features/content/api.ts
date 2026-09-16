@@ -49,16 +49,4 @@ export const contentApi = {
     api<SubdomainVersion[]>(`/content/subdomains/${id}/versions`),
 };
 
-/** Media upload (§14.3) — R2 or static, transparently, behind STORAGE_PORT. */
-export const mediaApi = {
-  upload: (file: File) => {
-    const fd = new FormData();
-    fd.append('file', file);
-    return api<{ url: string; key: string; kind: 'image' | 'audio' }>('/media/upload', {
-      method: 'POST',
-      body: fd,
-    });
-  },
-};
-
 export type { GameConfig };

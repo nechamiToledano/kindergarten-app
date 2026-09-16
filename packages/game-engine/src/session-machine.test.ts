@@ -48,6 +48,7 @@ describe('sessionReducer', () => {
   it('accepts a note only on the failure branch', () => {
     const failure: SessionState = {
       phase: 'RatingFailure',
+      hasDemo: false,
       attempts: 3,
       rawAnswers: [],
       rating: null,
@@ -59,6 +60,18 @@ describe('sessionReducer', () => {
     const success: SessionState = { ...failure, phase: 'RatingSuccess' };
     const ratedOk = sessionReducer(success, { type: 'RATE', rating: 'PRESENT', teacherNote: 'x' });
     expect(ratedOk.teacherNote).toBeNull();
+  });
+
+  it('routes through Demo before ChildInstruction when the subdomain has one', () => {
+    const s = [{ type: 'START' as const }].reduce(sessionReducer, initialSessionState(true));
+    expect(s.phase).toBe('Demo');
+    const afterDemo = sessionReducer(s, { type: 'DEMO_DONE' });
+    expect(afterDemo.phase).toBe('ChildInstruction');
+  });
+
+  it('skips Demo straight to ChildInstruction when the subdomain has none', () => {
+    const s = [{ type: 'START' as const }].reduce(sessionReducer, initialSessionState(false));
+    expect(s.phase).toBe('ChildInstruction');
   });
 
   it('never auto-assigns a rating', () => {

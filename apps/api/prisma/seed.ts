@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
 import * as argon2 from 'argon2';
 import { GameConfigSchema } from '@kga/contracts';
 import { createDefaultRegistry } from '@kga/game-engine';
@@ -95,6 +95,9 @@ async function main(): Promise<void> {
         // Content-validation guardrail (§15) — every seeded config parses under its plugin schema.
         registry.get(config.gameType).configSchema.parse(config);
 
+        const demoConfig = sub.demoConfig ? GameConfigSchema.parse(sub.demoConfig) : null;
+        if (demoConfig) registry.get(demoConfig.gameType).configSchema.parse(demoConfig);
+
         // `level` is deliberately not set from the catalogue: nothing in it grades
         // difficulty, and inventing a grade would put a number in front of a
         // teacher that no one chose. Seeded content sits at level 1 until a
@@ -110,6 +113,10 @@ async function main(): Promise<void> {
             childInstruction: sub.childInstruction,
             gameType: config.gameType,
             gameConfig: config,
+            // content.ts is the source of truth: re-seeding must clear a stale
+            // demoConfig, not just skip writing a missing one (undefined would
+            // leave a previously-set value behind).
+            demoConfig: demoConfig ?? Prisma.JsonNull,
           },
           create: {
             id: sub.id,
@@ -121,6 +128,7 @@ async function main(): Promise<void> {
             childInstruction: sub.childInstruction,
             gameType: config.gameType,
             gameConfig: config,
+            demoConfig: demoConfig ?? Prisma.JsonNull,
           },
         });
         subdomainCount += 1;

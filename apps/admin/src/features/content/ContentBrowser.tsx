@@ -100,6 +100,61 @@ export function ContentBrowser() {
     }
   }
 
+  async function duplicateSubdomain(s: SubdomainSummary) {
+    try {
+      // The list row is a summary without gameConfig/demoConfig — load the full
+      // record first so the copy actually carries the config, not a blank one.
+      const full = await contentApi.getSubdomain(s.id);
+      await contentApi.createSubdomain({
+        domainId: full.domainId,
+        name: `${full.name} (עותק)`,
+        orderIndex: (subdomains?.length ?? 0) + 1,
+        ageGroups: full.ageGroups,
+        level: full.level,
+        teacherInstruction: full.teacherInstruction,
+        childInstruction: full.childInstruction,
+        gameType: full.gameType,
+        gameConfig: full.gameConfig,
+        demoConfig: full.demoConfig,
+      });
+      if (openDomain) loadSubdomains(openDomain);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'שגיאה');
+    }
+  }
+
+  async function moveDomain(d: Domain, dir: -1 | 1) {
+    if (!domains) return;
+    const idx = domains.findIndex((x) => x.id === d.id);
+    const other = domains[idx + dir];
+    if (!other) return;
+    try {
+      await Promise.all([
+        contentApi.updateDomain(d.id, { orderIndex: other.orderIndex }),
+        contentApi.updateDomain(other.id, { orderIndex: d.orderIndex }),
+      ]);
+      loadDomains();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'שגיאה');
+    }
+  }
+
+  async function moveSubdomain(s: SubdomainSummary, dir: -1 | 1) {
+    if (!subdomains) return;
+    const idx = subdomains.findIndex((x) => x.id === s.id);
+    const other = subdomains[idx + dir];
+    if (!other || !openDomain) return;
+    try {
+      await Promise.all([
+        contentApi.updateSubdomain(s.id, { orderIndex: other.orderIndex }),
+        contentApi.updateSubdomain(other.id, { orderIndex: s.orderIndex }),
+      ]);
+      loadSubdomains(openDomain);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'שגיאה');
+    }
+  }
+
   if (editing) {
     return (
       <SubdomainEditor
@@ -145,8 +200,26 @@ export function ContentBrowser() {
           </div>
           {!domains && <p className="muted">טוען…</p>}
           <ul className="list">
-            {domains?.map((d) => (
+            {domains?.map((d, i) => (
               <li key={d.id} className={openDomain?.id === d.id ? 'active' : ''}>
+                <div className="reorder">
+                  <button
+                    type="button"
+                    className="link"
+                    disabled={i === 0}
+                    onClick={() => moveDomain(d, -1)}
+                  >
+                    ↑
+                  </button>
+                  <button
+                    type="button"
+                    className="link"
+                    disabled={i === domains.length - 1}
+                    onClick={() => moveDomain(d, 1)}
+                  >
+                    ↓
+                  </button>
+                </div>
                 <button type="button" className="list-main" onClick={() => loadSubdomains(d)}>
                   {d.name}
                 </button>
@@ -178,8 +251,26 @@ export function ContentBrowser() {
           {!openDomain && <p className="muted">בחר תחום כדי לראות את תתי-התחומים שלו.</p>}
           {openDomain && !subdomains && <p className="muted">טוען…</p>}
           <ul className="list">
-            {subdomains?.map((s) => (
+            {subdomains?.map((s, i) => (
               <li key={s.id}>
+                <div className="reorder">
+                  <button
+                    type="button"
+                    className="link"
+                    disabled={i === 0}
+                    onClick={() => moveSubdomain(s, -1)}
+                  >
+                    ↑
+                  </button>
+                  <button
+                    type="button"
+                    className="link"
+                    disabled={i === subdomains.length - 1}
+                    onClick={() => moveSubdomain(s, 1)}
+                  >
+                    ↓
+                  </button>
+                </div>
                 <button
                   type="button"
                   className="list-main"
@@ -200,6 +291,9 @@ export function ContentBrowser() {
                     שחק
                   </a>
                 )}
+                <button type="button" className="link" onClick={() => duplicateSubdomain(s)}>
+                  שכפל
+                </button>
                 <button type="button" className="link danger" onClick={() => deleteSubdomain(s)}>
                   מחק
                 </button>

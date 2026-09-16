@@ -25,6 +25,7 @@ export interface PlayableSubdomain {
   teacherInstruction: string;
   childInstruction: string;
   gameConfig: GameConfig;
+  demoConfig?: GameConfig | null;
 }
 
 export interface SubdomainRunResult {
@@ -37,12 +38,22 @@ export interface SubdomainRunResult {
 
 const RATING_LABELS: Record<RatingValue, string> = {
   PRESENT: '✓ קיים',
+  PRESENT_WITH_SUPPORT: '~ קיים עם תיווך',
   PARTIALLY_PRESENT: '~ קיים חלקית',
   ABSENT: '✕ לא קיים',
 };
 
 function promptAudioUrl(config: GameConfig): string | null {
   return 'promptAudioUrl' in config ? config.promptAudioUrl : null;
+}
+
+/** The full ordered clip list for a prompt — usually just one url, but a few
+ * "which sound came first/last" prompts chain a second real sound after it. */
+function promptAudioSequence(config: GameConfig): string[] {
+  const first = promptAudioUrl(config);
+  if (!first) return [];
+  const rest = 'sequenceAudioUrls' in config ? config.sequenceAudioUrls ?? [] : [];
+  return [first, ...rest];
 }
 
 export function GamePlayer({
@@ -60,6 +71,13 @@ export function GamePlayer({
   const assets = useMemo(() => plugin.assetsOf(config), [plugin, config]);
   const Component = gameComponents[config.gameType];
 
+  const demoConfig = subdomain.demoConfig ?? null;
+  const DemoComponent = demoConfig ? gameComponents[demoConfig.gameType] : null;
+  const demoAssets = useMemo(
+    () => (demoConfig ? engineRegistry.get(demoConfig.gameType).assetsOf(demoConfig as never) : []),
+    [demoConfig],
+  );
+
   const { unlock, play, speak } = useAudioUnlock();
 
   // Real speech is a better stand-in than an abstract tone for a subdomain
@@ -73,7 +91,19 @@ export function GamePlayer({
     },
     [play, speak, subdomain.childInstruction],
   );
-  const [state, dispatch] = useReducer(sessionReducer, undefined, initialSessionState);
+
+  // A short silence between chained clips (e.g. drum … bell) so the two
+  // sounds read as distinct beats instead of running into each other.
+  const playPromptSequence = useCallback(
+    async (urls: string[]) => {
+      for (const [i, url] of urls.entries()) {
+        if (i > 0) await new Promise((resolve) => setTimeout(resolve, 350));
+        await playPrompt(url);
+      }
+    },
+    [playPrompt],
+  );
+  const [state, dispatch] = useReducer(sessionReducer, Boolean(demoConfig), initialSessionState);
   const [note, setNote] = useState('');
   const [pendingRating, setPendingRating] = useState<RatingValue | null>(null);
   const [isPromptPlaying, setIsPromptPlaying] = useState(false);
@@ -82,7 +112,7 @@ export function GamePlayer({
   useEffect(() => {
     if (state.phase !== 'ChildInstruction') return;
     let cancelled = false;
-    const url = promptAudioUrl(config);
+    const urls = promptAudioSequence(config);
     const done = () => {
       if (!cancelled) {
         setIsPromptPlaying(false);
@@ -90,12 +120,12 @@ export function GamePlayer({
       }
     };
     setIsPromptPlaying(true);
-    if (url) playPrompt(url).then(done, done);
+    if (urls.length) playPromptSequence(urls).then(done, done);
     else done();
     return () => {
       cancelled = true;
     };
-  }, [state.phase, config, playPrompt]);
+  }, [state.phase, config, playPromptSequence]);
 
   // Feedback phases tick forward on a timer, each cued by its own sound effect
   // (Spec: "תגובה חזותית עם צליל ... לתשובה נכונה או שגויה").
@@ -106,15 +136,21 @@ export function GamePlayer({
       return () => clearTimeout(t);
     }
     if (state.phase === 'CorrectFeedback') {
+      const lastAnswer = state.rawAnswers[state.rawAnswers.length - 1]?.value;
+      const feedbackAudioUrl =
+        lastAnswer && typeof lastAnswer === 'object' && 'feedbackAudioUrl' in lastAnswer
+          ? (lastAnswer as { feedbackAudioUrl?: string }).feedbackAudioUrl
+          : undefined;
       void play('/assets/audio/sfx-correct.wav');
-      const t = setTimeout(() => dispatch({ type: 'ADVANCE' }), 1200);
+      if (feedbackAudioUrl) void playPrompt(feedbackAudioUrl);
+      const t = setTimeout(() => dispatch({ type: 'ADVANCE' }), feedbackAudioUrl ? 2200 : 1200);
       return () => clearTimeout(t);
     }
     if (state.phase === 'Exhausted') {
       const t = setTimeout(() => dispatch({ type: 'ADVANCE' }), 1200);
       return () => clearTimeout(t);
     }
-  }, [state.phase, play]);
+  }, [state.phase, state.rawAnswers, play, playPrompt]);
 
   // Done — hand the result up once.
   const completedRef = useRef(false);
@@ -178,6 +214,30 @@ export function GamePlayer({
           </main>
         );
 
+      case 'Demo':
+        return (
+          <main className="game-screen game-screen-centered">
+            <div className="game-topbar"><span className="game-brand">משחקים ולומדים</span><span className="game-step">דוגמה</span></div>
+            <div className="game-play-header">
+              <div className="game-instruction-pill">בואו נראה דוגמה ביחד</div>
+            </div>
+            <div className="game-play-card">
+              {demoConfig && DemoComponent && (
+                <AssetPreloader assets={demoAssets}>
+                  <DemoComponent config={demoConfig as never} disabled={false} onAnswer={() => dispatch({ type: 'DEMO_DONE' })} />
+                </AssetPreloader>
+              )}
+            </div>
+            <button
+              type="button"
+              className="game-submit-btn"
+              onClick={() => dispatch({ type: 'DEMO_DONE' })}
+            >
+              עברנו על הדוגמה, בואו ננסה
+            </button>
+          </main>
+        );
+
       case 'ChildInstruction':
         return (
           <main className="game-screen game-screen-centered">
@@ -189,8 +249,8 @@ export function GamePlayer({
               <button
                 type="button"
                 className="replay-button"
-                onClick={() => { const url = promptAudioUrl(config); if (url) { setIsPromptPlaying(true); void playPrompt(url).finally(() => setIsPromptPlaying(false)); } }}
-                disabled={isPromptPlaying || !promptAudioUrl(config)}
+                onClick={() => { const urls = promptAudioSequence(config); if (urls.length) { setIsPromptPlaying(true); void playPromptSequence(urls).finally(() => setIsPromptPlaying(false)); } }}
+                disabled={isPromptPlaying || !promptAudioSequence(config).length}
               >
                 <span aria-hidden="true">🔁</span> השמעה חוזרת
               </button>
@@ -211,7 +271,7 @@ export function GamePlayer({
             </div>
             <div className="game-play-header">
               <div className="game-instruction-pill">{subdomain.childInstruction}</div>
-              {promptAudioUrl(config) && <button type="button" className="replay-button game-replay" onClick={() => { const url = promptAudioUrl(config); if (url) void playPrompt(url); }} aria-label="שמיעת ההוראה שוב">🔊</button>}
+              {promptAudioSequence(config).length > 0 && <button type="button" className="replay-button game-replay" onClick={() => { const urls = promptAudioSequence(config); if (urls.length) void playPromptSequence(urls); }} aria-label="שמיעת ההוראה שוב">🔊</button>}
             </div>
             <div className="game-play-card"><AssetPreloader assets={assets}><Component config={config as never} disabled={false} onAnswer={handleAnswer} /></AssetPreloader></div>
           </main>

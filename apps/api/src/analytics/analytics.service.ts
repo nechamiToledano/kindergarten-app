@@ -6,9 +6,10 @@ import { PrismaService } from '../prisma/prisma.service.js';
 
 const DEFAULT_CONCERN_THRESHOLD = SETTINGS_REGISTRY['assessment.concernThreshold'].default;
 
-/** PRESENT = 1, PARTIALLY_PRESENT = 0.5, ABSENT = 0 — the only scale in the system. */
+/** PRESENT = 1, PRESENT_WITH_SUPPORT = 0.75, PARTIALLY_PRESENT = 0.5, ABSENT = 0 — the only scale in the system. */
 export const RATING_SCORE: Record<Rating, number> = {
   PRESENT: 1,
+  PRESENT_WITH_SUPPORT: 0.75,
   PARTIALLY_PRESENT: 0.5,
   ABSENT: 0,
 };
@@ -154,6 +155,7 @@ export class AnalyticsService {
       assessed: number;
       absent: number;
       partial: number;
+      presentWithSupport: number;
       hasOpenSession: boolean;
       hasAnySession: boolean;
     },
@@ -162,7 +164,8 @@ export class AnalyticsService {
     if (input.watch) return 'NEEDS_ATTENTION';
     if (!input.hasAnySession) return 'NOT_STARTED';
     if (input.assessed >= threshold.minAssessed) {
-      const concern = (input.absent + input.partial * 0.5) / input.assessed;
+      const concern =
+        (input.absent + input.partial * 0.5 + input.presentWithSupport * 0.25) / input.assessed;
       if (concern >= threshold.concernRatio) return 'NEEDS_ATTENTION';
     }
     if (input.hasOpenSession) return 'IN_PROGRESS';
@@ -173,11 +176,13 @@ export class AnalyticsService {
   /** Tally a child's latest ratings into counts and a 0–100 score. */
   tally(results: { rating: Rating }[]) {
     let present = 0;
+    let presentWithSupport = 0;
     let partial = 0;
     let absent = 0;
     let score = 0;
     for (const result of results) {
       if (result.rating === 'PRESENT') present += 1;
+      else if (result.rating === 'PRESENT_WITH_SUPPORT') presentWithSupport += 1;
       else if (result.rating === 'PARTIALLY_PRESENT') partial += 1;
       else absent += 1;
       score += RATING_SCORE[result.rating];
@@ -185,6 +190,7 @@ export class AnalyticsService {
     const assessed = results.length;
     return {
       present,
+      presentWithSupport,
       partial,
       absent,
       assessed,

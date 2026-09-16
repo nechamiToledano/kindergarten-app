@@ -28,6 +28,11 @@
   --font-sans: 'Assistant', 'Heebo', 'Segoe UI', system-ui, sans-serif;
   --font-display: 'Rubik', 'Assistant', 'Segoe UI', system-ui, sans-serif;
 
+  /* The wordmark and its tagline get their own light, hand-drawn feel —
+     distinct from the UI's display font so the brand reads as a mark, not
+     just another heading. */
+  --font-brand: 'Playpen Sans Hebrew', 'Rubik', 'Assistant', 'Segoe UI', system-ui, cursive;
+
   --color-background: oklch(0.985 0.006 95);
   --color-foreground: oklch(0.26 0.012 75);
   --color-card: oklch(1 0 0);
@@ -51,9 +56,11 @@
   --color-destructive: oklch(0.585 0.17 28);
   --color-destructive-foreground: oklch(0.99 0.01 30);
 
-  /* Rating semantics — קיים / קיים חלקית / לא קיים. */
+  /* Rating semantics — קיים / קיים עם תיווך / קיים חלקית / לא קיים. */
   --color-present: oklch(0.6 0.11 158);
   --color-present-soft: oklch(0.955 0.03 160);
+  --color-support: oklch(0.6 0.1 230);
+  --color-support-soft: oklch(0.955 0.03 235);
   --color-partial: oklch(0.62 0.1 72);
   --color-partial-soft: oklch(0.96 0.04 85);
   --color-absent: oklch(0.62 0.15 30);

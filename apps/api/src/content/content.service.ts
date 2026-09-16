@@ -160,6 +160,7 @@ export class ContentService {
           childInstruction: subdomain.childInstruction,
           gameType: subdomain.gameType,
           gameConfig: current.gameConfig,
+          demoConfig: subdomain.demoConfig,
           subdomainVersionId: current.id,
           version: current.version,
         },
@@ -225,6 +226,7 @@ export class ContentService {
 
   async createSubdomain(principal: Principal, input: CreateSubdomain) {
     const config = validateGameConfig(input.gameConfig);
+    const demoConfig = input.demoConfig ? validateGameConfig(input.demoConfig) : null;
     const domain = await this.prisma.domain.findFirst({
       where: { id: input.domainId, deletedAt: null },
     });
@@ -242,6 +244,7 @@ export class ContentService {
           childInstruction: input.childInstruction,
           gameType: input.gameType,
           gameConfig: config,
+          demoConfig: demoConfig ?? Prisma.JsonNull,
         },
       });
       await tx.subdomainVersion.create({
@@ -270,6 +273,14 @@ export class ContentService {
     const configChanged =
       nextConfig !== undefined &&
       JSON.stringify(nextConfig) !== JSON.stringify(existing.gameConfig);
+    // demoConfig is an ungraded worked example, not versioned (§9.3 only covers
+    // gameConfig), so it can be nulled out explicitly — undefined means "leave it".
+    const nextDemoConfig =
+      input.demoConfig === undefined
+        ? undefined
+        : input.demoConfig === null
+          ? null
+          : validateGameConfig(input.demoConfig);
 
     await this.prisma.$transaction(async (tx) => {
       await tx.subdomain.update({
@@ -288,6 +299,9 @@ export class ContentService {
           }),
           ...(input.gameType !== undefined && { gameType: input.gameType }),
           ...(nextConfig !== undefined && { gameConfig: nextConfig }),
+          ...(nextDemoConfig !== undefined && {
+            demoConfig: nextDemoConfig ?? Prisma.JsonNull,
+          }),
         },
       });
       if (configChanged) {

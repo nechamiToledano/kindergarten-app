@@ -82,6 +82,10 @@ export function SubdomainEditor({
       >,
   );
 
+  // An ungraded worked example shown before the scored trial (§ demoConfig).
+  // null means "no demo" — the checkbox in the config header turns it on/off.
+  const [demoConfig, setDemoConfig] = useState<Record<string, unknown> | null>(null);
+
   useEffect(() => {
     if (!subdomainId) return;
     let alive = true;
@@ -102,6 +106,7 @@ export function SubdomainEditor({
         const cfg = row.gameConfig as Record<string, unknown>;
         setConfig(cfg);
         setRawText(JSON.stringify(cfg, null, 2));
+        setDemoConfig((row.demoConfig as Record<string, unknown> | null) ?? null);
       })
       .catch((err) => setError(err instanceof Error ? err.message : 'הטעינה נכשלה'))
       .finally(() => alive && setLoading(false));
@@ -130,6 +135,13 @@ export function SubdomainEditor({
     setMeta((m) => ({ ...m, gameType }));
     setConfig(next);
     setRawText(JSON.stringify(next, null, 2));
+    // The demo, if any, must be the same game type as the real trial — reblank
+    // it rather than leave a stale config for a different mechanic behind.
+    setDemoConfig((d) =>
+      d === null
+        ? null
+        : (blankValue(toJsonSchema(gameType), { defs: {}, hints: {} }) as Record<string, unknown>),
+    );
   }
 
   function applyConfig(v: Record<string, unknown>) {
@@ -147,8 +159,13 @@ export function SubdomainEditor({
     }
   }
 
+  const demoParsed =
+    demoConfig === null ? null : plugin.configSchema.safeParse(demoConfig);
+  const demoIssues: { path: (string | number | symbol)[]; message: string }[] =
+    demoParsed && !demoParsed.success ? demoParsed.error.issues : [];
+
   async function save() {
-    if (!parsed.success) {
+    if (!parsed.success || (demoParsed && !demoParsed.success)) {
       setError('התצורה אינה תקינה — תקן את השגיאות המסומנות');
       return;
     }
@@ -165,6 +182,7 @@ export function SubdomainEditor({
         childInstruction: meta.childInstruction,
         gameType: meta.gameType,
         gameConfig: parsed.data as never,
+        demoConfig: (demoParsed ? demoParsed.data : null) as never,
       };
       if (existing) {
         await contentApi.updateSubdomain(existing.id, body);
@@ -315,6 +333,46 @@ export function SubdomainEditor({
         </ul>
       )}
 
+      <div className="editor-config">
+        <div className="editor-config-head">
+          <h3>דוגמה מודגמת (לא לניקוד)</h3>
+          <label className="row" style={{ gap: '0.4rem' }}>
+            <input
+              type="checkbox"
+              checked={demoConfig !== null}
+              onChange={(e) =>
+                setDemoConfig(
+                  e.target.checked
+                    ? (blankValue(jsonSchema, { defs: {}, hints: {} }) as Record<string, unknown>)
+                    : null,
+                )
+              }
+            />
+            הצג דוגמה לילד לפני הניסוי המנוקד
+          </label>
+        </div>
+        {demoConfig !== null &&
+          (meta.gameType === 'HOTSPOT_IMAGE' ? (
+            <HotspotEditor value={demoConfig} onChange={setDemoConfig} />
+          ) : (
+            <SchemaForm
+              jsonSchema={jsonSchema}
+              hints={plugin.meta.hints}
+              value={demoConfig}
+              onChange={setDemoConfig}
+            />
+          ))}
+        {demoIssues.length > 0 && (
+          <ul className="issues">
+            {demoIssues.map((iss, i) => (
+              <li key={i}>
+                <code>{iss.path.join('.') || '(root)'}</code> — {iss.message}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
       {assets.length > 0 && (
         <div className="assets">
           <h4>נכסים ({assets.length})</h4>
@@ -334,7 +392,7 @@ export function SubdomainEditor({
         <button
           type="button"
           className="btn-primary"
-          disabled={busy || !parsed.success || !meta.name}
+          disabled={busy || !parsed.success || !meta.name || (demoParsed !== null && !demoParsed.success)}
           onClick={save}
         >
           {busy ? 'שומר…' : existing ? 'שמור שינויים' : 'צור תת-תחום'}

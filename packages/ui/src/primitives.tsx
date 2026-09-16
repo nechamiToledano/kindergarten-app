@@ -186,11 +186,12 @@ export function PageHeader({
 
 /* ── Badges & status ─────────────────────────────────────────────────────── */
 
-type BadgeTone = 'neutral' | 'present' | 'partial' | 'absent' | 'info' | 'primary';
+type BadgeTone = 'neutral' | 'present' | 'support' | 'partial' | 'absent' | 'info' | 'primary';
 
 const BADGE_TONES: Record<BadgeTone, string> = {
   neutral: 'bg-secondary text-muted-foreground',
   present: 'bg-present-soft text-present',
+  support: 'bg-support-soft text-support',
   partial: 'bg-partial-soft text-partial',
   absent: 'bg-absent-soft text-absent',
   info: 'bg-info-soft text-info',
@@ -212,6 +213,7 @@ export function Badge({
   const dotColor: Record<BadgeTone, string> = {
     neutral: 'bg-muted-foreground',
     present: 'bg-present',
+    support: 'bg-support',
     partial: 'bg-partial',
     absent: 'bg-absent',
     info: 'bg-info',

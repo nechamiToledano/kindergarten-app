@@ -117,6 +117,7 @@ export function PracticeScreen() {
           teacherInstruction: stage.subdomain.teacherInstruction,
           childInstruction: stage.subdomain.childInstruction,
           gameConfig: stage.subdomain.gameConfig,
+          demoConfig: stage.subdomain.demoConfig,
         }}
         onComplete={handleComplete}
       />

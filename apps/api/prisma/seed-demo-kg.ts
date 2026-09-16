@@ -25,7 +25,7 @@ const CHILDREN: ChildSpec[] = [
   { displayName: 'יובל כהן', birthDate: '2022-11-20', ageGroup: 'AGE_3_4', ratings: ['PRESENT', 'ABSENT', 'PRESENT'] },
   { displayName: 'הדר פרץ', birthDate: '2023-06-01', ageGroup: 'AGE_3_4', skipSessions: true },
   { displayName: 'מאיה ברק', birthDate: '2021-08-15', ageGroup: 'AGE_4_5', watch: true, ratings: ['PARTIALLY_PRESENT', 'ABSENT', 'PARTIALLY_PRESENT'] },
-  { displayName: 'עידו שני', birthDate: '2021-05-02', ageGroup: 'AGE_4_5', ratings: ['PRESENT', 'PRESENT', 'PRESENT', 'PARTIALLY_PRESENT'] },
+  { displayName: 'עידו שני', birthDate: '2021-05-02', ageGroup: 'AGE_4_5', ratings: ['PRESENT', 'PRESENT', 'PRESENT_WITH_SUPPORT', 'PARTIALLY_PRESENT'] },
   { displayName: 'נועה גל', birthDate: '2021-12-30', ageGroup: 'AGE_4_5', leaveOneOpen: true, ratings: ['PRESENT', 'PARTIALLY_PRESENT'] },
   { displayName: 'גיא שרון', birthDate: '2021-03-03', ageGroup: 'AGE_4_5', ratings: ['ABSENT', 'ABSENT', 'PARTIALLY_PRESENT', 'ABSENT'] },
   { displayName: 'אורי דגן', birthDate: '2020-04-18', ageGroup: 'AGE_5_6', ratings: ['PRESENT', 'PRESENT', 'ABSENT'] },

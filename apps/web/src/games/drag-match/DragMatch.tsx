@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, type PointerEvent as ReactPointerEvent } from 'react';
 import type { GameConfig } from '@kga/contracts';
 import { MIN_TOUCH_TARGET_PX } from '@kga/ui';
+import { useAudioUnlock } from '../../shared/audio/AudioUnlockProvider';
 import type { GameComponentProps } from '../types';
 import { DragGhost, ImageCard, SubmitButton } from '../ui';
 import { useDragDrop } from '../useDragDrop';
@@ -15,6 +16,7 @@ type Config = Extract<GameConfig, { gameType: 'DRAG_MATCH' }>;
  * plugin's `score` expects.
  */
 export function DragMatch({ config, disabled, onAnswer }: GameComponentProps<Config>) {
+  const { play } = useAudioUnlock();
   const [activeSource, setActiveSource] = useState<string | null>(null);
   const [links, setLinks] = useState<Record<string, string>>({});
   const [justLanded, setJustLanded] = useState<string | null>(null);
@@ -48,6 +50,9 @@ export function DragMatch({ config, disabled, onAnswer }: GameComponentProps<Con
 
   const linkedTargetIds = new Set(Object.values(links));
   const rowStyle = { display: 'flex', gap: '1rem', flexWrap: 'wrap' as const, justifyContent: 'center' };
+  const uniqueTargets = [
+    ...new Map(config.pairs.map((p) => [p.targetId, p])).values(),
+  ];
 
   return (
     <>
@@ -59,6 +64,10 @@ export function DragMatch({ config, disabled, onAnswer }: GameComponentProps<Con
           {config.pairs.map((p) => {
             const isLinked = Boolean(links[p.sourceId]);
             const isDraggingThis = dragging?.id === p.sourceId && dragging.moved;
+            const { onPointerDown, ...restDragProps } = getDraggableProps(p.sourceId, {
+              backgroundImage: `url("${p.sourceImageUrl}")`,
+              backgroundSize: 'cover',
+            });
             return (
               <ImageCard
                 key={p.sourceId}
@@ -68,16 +77,19 @@ export function DragMatch({ config, disabled, onAnswer }: GameComponentProps<Con
                 disabled={disabled}
                 onClick={() => {}}
                 className={`is-draggable${isDraggingThis ? ' is-dragging' : ''}`}
-                dragProps={getDraggableProps(p.sourceId, {
-                  backgroundImage: `url("${p.sourceImageUrl}")`,
-                  backgroundSize: 'cover',
-                })}
+                dragProps={{
+                  ...restDragProps,
+                  onPointerDown: (e: ReactPointerEvent<HTMLElement>) => {
+                    if (!disabled && p.sourceAudioUrl) void play(p.sourceAudioUrl);
+                    onPointerDown(e);
+                  },
+                }}
               />
             );
           })}
         </div>
         <div style={rowStyle}>
-          {config.pairs.map((p) => {
+          {uniqueTargets.map((p) => {
             const isFilled = linkedTargetIds.has(p.targetId);
             const isOver = overZone === p.targetId;
             return (

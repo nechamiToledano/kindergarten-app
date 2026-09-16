@@ -137,11 +137,13 @@ export function AppShell({
         </span>
         {(!collapsed || inDrawer) && (
           <span className="grid min-w-0 text-start leading-tight">
-            <span className="font-display truncate text-base font-semibold text-sidebar-foreground">
+            <span className="font-brand truncate text-xl font-light tracking-wide text-sidebar-foreground">
               {brand}
             </span>
             {brandSubtitle && (
-              <span className="truncate text-xs text-muted-foreground">{brandSubtitle}</span>
+              <span className="truncate text-xs font-light text-muted-foreground">
+                {brandSubtitle}
+              </span>
             )}
           </span>
         )}

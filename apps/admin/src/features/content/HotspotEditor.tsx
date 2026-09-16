@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { mediaApi } from './api';
+import { AssetPicker } from '../media/AssetPicker';
 
 /**
  * §14.2 — the hotspot coordinate editor Spec §6 asks for: drag rectangles over
@@ -51,8 +51,6 @@ export function HotspotEditor({
   const surfaceRef = useRef<HTMLDivElement>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [draft, setDraft] = useState<Target | null>(null);
-  const [uploading, setUploading] = useState<null | 'image' | 'audio'>(null);
-  const [error, setError] = useState<string | null>(null);
 
   const patch = (next: Partial<Config>) => onChange({ ...cfg, ...next });
 
@@ -124,58 +122,26 @@ export function HotspotEditor({
     });
   }
 
-  async function upload(kind: 'image' | 'audio', file: File | undefined) {
-    if (!file) return;
-    setUploading(kind);
-    setError(null);
-    try {
-      const { url } = await mediaApi.upload(file);
-      patch(kind === 'image' ? { imageUrl: url } : { promptAudioUrl: url });
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'העלאה נכשלה');
-    } finally {
-      setUploading(null);
-    }
-  }
-
   return (
     <div className="hs">
       <div className="sf">
-        <label className="sf-field">
-          <span className="sf-label">כתובת שמע ההוראה</span>
-          <div className="row">
-            <input
-              value={cfg.promptAudioUrl}
-              onChange={(e) => patch({ promptAudioUrl: e.target.value })}
-            />
-            <label className="btn-ghost sf-remove">
-              {uploading === 'audio' ? 'מעלה…' : 'העלה שמע'}
-              <input
-                type="file"
-                accept="audio/*"
-                hidden
-                onChange={(e) => upload('audio', e.target.files?.[0])}
-              />
-            </label>
-          </div>
-        </label>
+        <div className="sf-field">
+          <span className="sf-label">שמע ההוראה</span>
+          <AssetPicker
+            kind="audio"
+            value={cfg.promptAudioUrl}
+            onChange={(url) => patch({ promptAudioUrl: url })}
+          />
+        </div>
 
-        <label className="sf-field">
-          <span className="sf-label">כתובת התמונה</span>
-          <div className="row">
-            <input value={cfg.imageUrl} onChange={(e) => patch({ imageUrl: e.target.value })} />
-            <label className="btn-ghost sf-remove">
-              {uploading === 'image' ? 'מעלה…' : 'העלה תמונה'}
-              <input
-                type="file"
-                accept="image/*"
-                hidden
-                onChange={(e) => upload('image', e.target.files?.[0])}
-              />
-            </label>
-          </div>
-        </label>
-        {error && <p className="error-text">{error}</p>}
+        <div className="sf-field">
+          <span className="sf-label">התמונה</span>
+          <AssetPicker
+            kind="image"
+            value={cfg.imageUrl}
+            onChange={(url) => patch({ imageUrl: url })}
+          />
+        </div>
       </div>
 
       <p className="sf-hint">גרור על התמונה כדי לצייר אזור מגע. לחץ על אזור קיים כדי לבחור אותו.</p>

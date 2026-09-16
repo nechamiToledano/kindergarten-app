@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { GameConfig } from '@kga/contracts';
 import { MIN_TOUCH_TARGET_PX } from '@kga/ui';
+import { useAudioUnlock } from '../../shared/audio/AudioUnlockProvider';
 import type { GameComponentProps } from '../types';
 import { SubmitButton } from '../ui';
 
@@ -12,11 +13,20 @@ type Config = Extract<GameConfig, { gameType: 'SEQUENTIAL_TAP' }>;
  * more than once, so taps just accumulate until the expected length is reached.
  */
 export function SequentialTap({ config, disabled, onAnswer }: GameComponentProps<Config>) {
+  const { play } = useAudioUnlock();
   const [taps, setTaps] = useState<string[]>([]);
+  const [rejectedPad, setRejectedPad] = useState<string | null>(null);
   const full = taps.length >= config.correctSequence.length;
 
   const tap = (id: string) => {
     if (disabled || full) return;
+    if (config.validateEachStep && id !== config.correctSequence[taps.length]) {
+      void play('/assets/audio/sfx-wrong.wav');
+      setRejectedPad(id);
+      window.setTimeout(() => setRejectedPad((cur) => (cur === id ? null : cur)), 500);
+      return;
+    }
+    void play('/assets/audio/sfx-soft-button-click.wav');
     setTaps((cur) => [...cur, id]);
   };
 
@@ -37,13 +47,15 @@ export function SequentialTap({ config, disabled, onAnswer }: GameComponentProps
             aria-label={pad.label ?? pad.id}
             disabled={disabled || full}
             onClick={() => tap(pad.id)}
-            className="game-tap-pad"
+            className={`game-tap-pad${rejectedPad === pad.id ? ' shake' : ''}`}
             style={{
               inlineSize: 'clamp(90px, 18vw, 140px)',
               blockSize: 'clamp(90px, 18vw, 140px)',
               minInlineSize: MIN_TOUCH_TARGET_PX,
               minBlockSize: MIN_TOUCH_TARGET_PX,
               background: pad.color,
+              backgroundImage: pad.imageUrl ? `url("${pad.imageUrl}")` : undefined,
+              backgroundSize: 'cover',
               cursor: disabled || full ? 'default' : 'pointer',
             }}
           />

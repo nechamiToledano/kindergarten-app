@@ -14,6 +14,15 @@ export function MultiImageChoice({ config, disabled, onAnswer }: GameComponentPr
 
   return (
     <>
+      {config.sampleImageUrl && (
+        <div style={{ display: 'grid', justifyItems: 'center', gap: 8, marginBlockEnd: 8 }}>
+          <img
+            src={config.sampleImageUrl}
+            alt="דוגמה"
+            style={{ inlineSize: 'clamp(90px, 20vw, 160px)', blockSize: 'clamp(90px, 20vw, 160px)', objectFit: 'cover', borderRadius: 16, border: '3px solid var(--accent-2, #2f8f5b)' }}
+          />
+        </div>
+      )}
       <OptionGrid>
         {config.options.map((option) => (
           <ImageCard

@@ -152,6 +152,7 @@ export function SessionRunner() {
             teacherInstruction: content.teacherInstruction,
             childInstruction: content.childInstruction,
             gameConfig: content.gameConfig,
+            demoConfig: content.demoConfig,
           }}
           onComplete={handleComplete}
         />

@@ -107,8 +107,8 @@ export function LoginScreen() {
             <TelemMark className="size-14" />
           </span>
           <div>
-            <h1 className="font-display text-2xl font-semibold">תלם</h1>
-            <p className="text-sm text-muted-foreground">
+            <h1 className="font-brand text-4xl font-thin tracking-widest">תלם</h1>
+            <p className="mt-1 text-sm font-light text-muted-foreground">
               בוקר טוב! מערכת אבחון והתפתחות לגני ילדים
             </p>
           </div>

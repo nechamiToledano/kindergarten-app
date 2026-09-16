@@ -18,7 +18,7 @@ import { CLOCK, ageGroupOf, birthDateRangeFor, type ClockPort } from '../common/
 import { AnalyticsService, RATING_SCORE, pct } from '../analytics/analytics.service.js';
 import { SettingsService } from '../settings/settings.service.js';
 
-const EMPTY_DIST = { PRESENT: 0, PARTIALLY_PRESENT: 0, ABSENT: 0 } as const;
+const EMPTY_DIST = { PRESENT: 0, PRESENT_WITH_SUPPORT: 0, PARTIALLY_PRESENT: 0, ABSENT: 0 } as const;
 
 @Injectable()
 export class ReportsService {
@@ -116,7 +116,10 @@ export class ReportsService {
     const domains = await this.prisma.domain.findMany({ select: { id: true, name: true } });
     const domainNameById = new Map(domains.map((d) => [d.id, d.name]));
 
-    const distribution = new Map<string, { PRESENT: number; PARTIALLY_PRESENT: number; ABSENT: number }>();
+    const distribution = new Map<
+      string,
+      { PRESENT: number; PRESENT_WITH_SUPPORT: number; PARTIALLY_PRESENT: number; ABSENT: number }
+    >();
     for (const result of latest) {
       const bucket = distribution.get(result.subdomainId) ?? { ...EMPTY_DIST };
       bucket[result.rating] += 1;
@@ -127,11 +130,13 @@ export class ReportsService {
       .filter((result) => result.childId === childId)
       .map((result) => {
         const dist = distribution.get(result.subdomainId) ?? { ...EMPTY_DIST };
-        const cohortSize = dist.PRESENT + dist.PARTIALLY_PRESENT + dist.ABSENT;
+        const cohortSize =
+          dist.PRESENT + dist.PRESENT_WITH_SUPPORT + dist.PARTIALLY_PRESENT + dist.ABSENT;
         const cohortScore =
           cohortSize === 0
             ? 0
-            : (dist.PRESENT + dist.PARTIALLY_PRESENT * 0.5) / cohortSize;
+            : (dist.PRESENT + dist.PRESENT_WITH_SUPPORT * 0.75 + dist.PARTIALLY_PRESENT * 0.5) /
+              cohortSize;
         return {
           subdomainId: result.subdomainId,
           subdomainName: result.subdomainName,
@@ -182,7 +187,8 @@ export class ReportsService {
       if (result.subdomainId !== subdomainId) continue;
       const entry = { id: result.childId, displayName: nameById.get(result.childId) ?? '' };
       if (result.rating === 'PRESENT') strong.push(entry);
-      else if (result.rating === 'PARTIALLY_PRESENT') partial.push(entry);
+      else if (result.rating === 'PRESENT_WITH_SUPPORT' || result.rating === 'PARTIALLY_PRESENT')
+        partial.push(entry);
       else needsSupport.push(entry);
     }
 
@@ -319,6 +325,7 @@ export class ReportsService {
           assessed: tally.assessed,
           absent: tally.absent,
           partial: tally.partial,
+          presentWithSupport: tally.presentWithSupport,
           hasOpenSession: !!stats?.openSessionId,
           hasAnySession: !!stats?.lastSessionAt,
         },
@@ -472,6 +479,7 @@ export class ReportsService {
         completedAt: row.completedAt?.toISOString() ?? null,
         domainNames,
         present: tally.present,
+        presentWithSupport: tally.presentWithSupport,
         partial: tally.partial,
         absent: tally.absent,
       };

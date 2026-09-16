@@ -113,6 +113,10 @@ export async function apiBlob(
   let res: Response;
   try {
     res = await fetch(`${BASE}${path}`, {
+      // Same reasoning as `api()` — an export is tenant-scoped, live data;
+      // a browser-cached response here can ship a file that's missing
+      // whatever changed since the last export.
+      cache: 'no-store',
       headers: tokenStore.access ? { authorization: `Bearer ${tokenStore.access}` } : {},
     });
   } catch {

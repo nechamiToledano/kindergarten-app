@@ -8,6 +8,7 @@ export const MAX_ATTEMPTS = 3;
 
 export type SessionPhase =
   | 'TeacherInstruction'
+  | 'Demo'
   | 'ChildInstruction'
   | 'Playing'
   | 'CorrectFeedback'
@@ -19,6 +20,8 @@ export type SessionPhase =
 
 export interface SessionState {
   phase: SessionPhase;
+  /** Whether this subdomain has a worked example to show before the scored trial (Spec: "לפני הבדיקה תוצג דוגמא"). */
+  hasDemo: boolean;
   attempts: number;
   rawAnswers: RawAnswer[];
   rating: Rating | null;
@@ -27,6 +30,7 @@ export interface SessionState {
 
 export type SessionEvent =
   | { type: 'START' } // teacher taps Start (user gesture — unlocks audio, §11.4)
+  | { type: 'DEMO_DONE' }
   | { type: 'CHILD_AUDIO_FINISHED' }
   | { type: 'ANSWER'; correct: boolean; value: unknown; at: string }
   | { type: 'CONTINUE_AFTER_WRONG' }
@@ -35,14 +39,25 @@ export type SessionEvent =
   | { type: 'ADVANCE' }
   | { type: 'RATE'; rating: Rating; teacherNote?: string | null };
 
-export function initialSessionState(): SessionState {
-  return { phase: 'TeacherInstruction', attempts: 0, rawAnswers: [], rating: null, teacherNote: null };
+export function initialSessionState(hasDemo = false): SessionState {
+  return {
+    phase: 'TeacherInstruction',
+    hasDemo,
+    attempts: 0,
+    rawAnswers: [],
+    rating: null,
+    teacherNote: null,
+  };
 }
 
 export function sessionReducer(state: SessionState, event: SessionEvent): SessionState {
   switch (state.phase) {
     case 'TeacherInstruction':
-      return event.type === 'START' ? { ...state, phase: 'ChildInstruction' } : state;
+      if (event.type !== 'START') return state;
+      return { ...state, phase: state.hasDemo ? 'Demo' : 'ChildInstruction' };
+
+    case 'Demo':
+      return event.type === 'DEMO_DONE' ? { ...state, phase: 'ChildInstruction' } : state;
 
     case 'ChildInstruction':
       return event.type === 'CHILD_AUDIO_FINISHED' ? { ...state, phase: 'Playing' } : state;

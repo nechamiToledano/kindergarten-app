@@ -6,6 +6,7 @@ import { SessionModeSchema } from './session.js';
 /** Count of each rating across a cohort, for the "child vs. group" view. */
 export const RatingDistributionSchema = z.object({
   PRESENT: z.number().int(),
+  PRESENT_WITH_SUPPORT: z.number().int(),
   PARTIALLY_PRESENT: z.number().int(),
   ABSENT: z.number().int(),
 });
@@ -98,6 +99,7 @@ export const RecentSessionSchema = z.object({
   /** Domains this sitting covered, for the activity line. */
   domainNames: z.array(z.string()),
   present: z.number().int(),
+  presentWithSupport: z.number().int(),
   partial: z.number().int(),
   absent: z.number().int(),
 });
