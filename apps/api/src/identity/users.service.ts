@@ -100,6 +100,13 @@ export class UsersService {
     const existing = await this.prisma.user.findFirst({ where: { email: input.email } });
     if (existing) throw new BadRequestException('Email already in use');
 
+    // M11 bugfix — a new NETWORK_ADMIN inherits the creating admin's own
+    // network; without this its networkId stays null and the role is
+    // unusable (see the doc comment on User.networkId in schema.prisma).
+    if (input.role === 'NETWORK_ADMIN' && !principal.networkId) {
+      throw new BadRequestException('Your own account has no network to attach the new admin to');
+    }
+
     const row = await this.prisma.user.create({
       data: {
         email: input.email,
@@ -107,6 +114,7 @@ export class UsersService {
         passwordHash: await argon2.hash(input.password),
         role: input.role,
         kindergartenId: input.kindergartenId,
+        networkId: input.role === 'NETWORK_ADMIN' ? principal.networkId : null,
       },
     });
     await this.audit.record(principal.sub, 'user.create', 'User', row.id, { role: row.role });

@@ -20,6 +20,7 @@ export class UserRepository {
     passwordHash: string;
     role: Role;
     kindergartenId: string | null;
+    networkId?: string | null;
   }) {
     return this.prisma.user.create({ data });
   }

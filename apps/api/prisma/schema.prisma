@@ -65,6 +65,9 @@ model Network {
   id            String         @id @default(uuid())
   name          String
   kindergartens Kindergarten[]
+  /** M11 bugfix — NETWORK_ADMIN accounts, which belong to a network directly
+      rather than through a kindergarten (see User.networkId). */
+  admins        User[]
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
   deletedAt     DateTime?
@@ -90,6 +93,17 @@ model User {
   id             String       @id @default(uuid())
   kindergartenId String?
   kindergarten   Kindergarten? @relation(fields: [kindergartenId], references: [id])
+  /**
+   * M11 bugfix — a NETWORK_ADMIN belongs to a network directly, not through a
+   * kindergarten (they manage every kindergarten in the network, so pinning
+   * them to one would be wrong). Before this field existed, every
+   * NETWORK_ADMIN resolved to `networkId: null` at login — derived only from
+   * `kindergartenId`, which a network admin never has — making the role
+   * unusable: every network-scoped endpoint throws ForbiddenException without
+   * a networkId. Null for every other role.
+   */
+  networkId      String?
+  network        Network?     @relation(fields: [networkId], references: [id])
   email          String       @unique
   displayName    String
   passwordHash   String
@@ -100,6 +114,7 @@ model User {
   deletedAt      DateTime?
 
   @@index([kindergartenId])
+  @@index([networkId])
 }
 
 model Child {

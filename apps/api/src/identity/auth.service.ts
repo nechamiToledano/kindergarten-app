@@ -20,6 +20,7 @@ type UserRow = {
   displayName: string;
   role: Role;
   kindergartenId: string | null;
+  networkId: string | null;
 };
 
 @Injectable()
@@ -41,9 +42,16 @@ export class AuthService {
     };
   }
 
-  private async networkIdFor(kindergartenId: string | null): Promise<string | null> {
-    if (!kindergartenId) return null;
-    const kg = await this.prisma.kindergarten.findUnique({ where: { id: kindergartenId } });
+  /**
+   * A NETWORK_ADMIN carries its network directly on `User.networkId` (M11
+   * bugfix — it has no kindergartenId, so there is nothing to derive a
+   * network from). Every other role's network, if any, comes from its
+   * kindergarten.
+   */
+  private async networkIdFor(row: UserRow): Promise<string | null> {
+    if (row.networkId) return row.networkId;
+    if (!row.kindergartenId) return null;
+    const kg = await this.prisma.kindergarten.findUnique({ where: { id: row.kindergartenId } });
     return kg?.networkId ?? null;
   }
 
@@ -82,7 +90,7 @@ export class AuthService {
       sub: row.id,
       role: row.role,
       kindergartenId: row.kindergartenId,
-      networkId: await this.networkIdFor(row.kindergartenId),
+      networkId: await this.networkIdFor(row),
     };
     return { user: this.toUser(row), tokens: await this.issueTokens(principal) };
   }
@@ -104,7 +112,7 @@ export class AuthService {
       sub: row.id,
       role: row.role,
       kindergartenId: row.kindergartenId,
-      networkId: await this.networkIdFor(row.kindergartenId),
+      networkId: await this.networkIdFor(row),
     };
     return { user: this.toUser(row), tokens: await this.issueTokens(next) };
   }
