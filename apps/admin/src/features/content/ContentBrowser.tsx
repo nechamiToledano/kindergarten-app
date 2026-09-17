@@ -5,9 +5,22 @@ import {
   type Domain,
   type SubdomainSummary,
 } from '@kga/contracts';
+import {
+  Badge,
+  Button,
+  Card,
+  CardBody,
+  CardHeader,
+  Dialog,
+  ErrorState,
+  Field,
+  Input,
+  Tabs,
+} from '@kga/ui';
 import { engineRegistry } from '../../shared/engine';
 import { subdomainPreviewUrl } from '../../shared/webApp';
 import { contentApi } from './api';
+import { GAME_TYPE_LABELS } from './fieldLabels';
 import { SubdomainEditor } from './SubdomainEditor';
 
 const AGE_GROUPS = AgeGroupSchema.options;
@@ -16,6 +29,135 @@ const AGE_LABEL: Record<AgeGroup, string> = {
   AGE_4_5: 'גיל 4–5',
   AGE_5_6: 'גיל 5–6',
 };
+
+/** A single text-field prompt (add / rename), replacing `window.prompt`. */
+function NameDialog({
+  open,
+  title,
+  fieldLabel,
+  initialValue,
+  confirmLabel,
+  onCancel,
+  onConfirm,
+}: {
+  open: boolean;
+  title: string;
+  fieldLabel: string;
+  initialValue: string;
+  confirmLabel: string;
+  onCancel: () => void;
+  onConfirm: (name: string) => Promise<void>;
+}) {
+  const [name, setName] = useState(initialValue);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (open) {
+      setName(initialValue);
+      setError(null);
+    }
+  }, [open, initialValue]);
+
+  async function submit() {
+    if (!name.trim()) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await onConfirm(name.trim());
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'שגיאה');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Dialog
+      open={open}
+      onClose={onCancel}
+      title={title}
+      footer={
+        <>
+          <Button type="button" variant="outline" onClick={onCancel}>
+            ביטול
+          </Button>
+          <Button type="button" loading={busy} disabled={!name.trim()} onClick={submit}>
+            {confirmLabel}
+          </Button>
+        </>
+      }
+    >
+      <div className="grid gap-3">
+        <Field label={fieldLabel}>
+          <Input
+            autoFocus
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && submit()}
+          />
+        </Field>
+        {error && <p className="text-sm text-destructive">{error}</p>}
+      </div>
+    </Dialog>
+  );
+}
+
+/** A delete confirmation, replacing `window.confirm`. */
+function DeleteDialog({
+  open,
+  itemName,
+  onCancel,
+  onConfirm,
+}: {
+  open: boolean;
+  itemName: string;
+  onCancel: () => void;
+  onConfirm: () => Promise<void>;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function submit() {
+    setBusy(true);
+    setError(null);
+    try {
+      await onConfirm();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'שגיאה');
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Dialog
+      open={open}
+      onClose={onCancel}
+      title="מחיקה"
+      description={`למחוק את "${itemName}"? לא ניתן לשחזר פעולה זו.`}
+      footer={
+        <>
+          <Button type="button" variant="outline" onClick={onCancel}>
+            ביטול
+          </Button>
+          <Button type="button" variant="danger" loading={busy} onClick={submit}>
+            מחק
+          </Button>
+        </>
+      }
+    >
+      {error && <p className="text-sm text-destructive">{error}</p>}
+    </Dialog>
+  );
+}
+
+type DomainDialogState =
+  | { kind: 'add' }
+  | { kind: 'rename'; domain: Domain }
+  | { kind: 'delete'; domain: Domain }
+  | null;
+
+type SubdomainDialogState = { kind: 'delete'; subdomain: SubdomainSummary } | null;
 
 export function ContentBrowser() {
   const [ageGroup, setAgeGroup] = useState<AgeGroup>('AGE_4_5');
@@ -30,6 +172,9 @@ export function ContentBrowser() {
   const [editing, setEditing] = useState<{ domainId: string; subdomainId: string | null } | null>(
     null,
   );
+
+  const [domainDialog, setDomainDialog] = useState<DomainDialogState>(null);
+  const [subdomainDialog, setSubdomainDialog] = useState<SubdomainDialogState>(null);
 
   // M10 §1 — domains no longer belong to an age band, so the whole list loads
   // once. The age selector below filters the *subdomains* under a domain, which
@@ -55,50 +200,6 @@ export function ContentBrowser() {
     },
     [ageGroup],
   );
-
-  async function addDomain() {
-    const name = window.prompt('שם התחום החדש');
-    if (!name) return;
-    try {
-      // The slug is derived server-side from the name when omitted.
-      await contentApi.createDomain({ name, orderIndex: domains?.length ?? 0 });
-      loadDomains();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'שגיאה');
-    }
-  }
-
-  async function renameDomain(d: Domain) {
-    const name = window.prompt('שם חדש לתחום', d.name);
-    if (!name || name === d.name) return;
-    try {
-      await contentApi.updateDomain(d.id, { name });
-      loadDomains();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'שגיאה');
-    }
-  }
-
-  async function deleteDomain(d: Domain) {
-    if (!window.confirm(`למחוק את "${d.name}"?`)) return;
-    try {
-      await contentApi.deleteDomain(d.id);
-      if (openDomain?.id === d.id) setOpenDomain(null);
-      loadDomains();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'שגיאה');
-    }
-  }
-
-  async function deleteSubdomain(s: SubdomainSummary) {
-    if (!window.confirm(`למחוק את "${s.name}"?`)) return;
-    try {
-      await contentApi.deleteSubdomain(s.id);
-      if (openDomain) loadSubdomains(openDomain);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'שגיאה');
-    }
-  }
 
   async function duplicateSubdomain(s: SubdomainSummary) {
     try {
@@ -171,140 +272,207 @@ export function ContentBrowser() {
   }
 
   return (
-    <div className="browser">
-      <div className="tabs">
-        {AGE_GROUPS.map((ag) => (
-          <button
-            key={ag}
-            type="button"
-            className={`tab ${ag === ageGroup ? 'tab-active' : ''}`}
-            onClick={() => {
-              setAgeGroup(ag);
-              setOpenDomain(null);
-            }}
-          >
-            {AGE_LABEL[ag]}
-          </button>
-        ))}
-      </div>
+    <div className="grid gap-4">
+      <Tabs
+        tabs={AGE_GROUPS.map((ag) => ({ value: ag, label: AGE_LABEL[ag] }))}
+        value={ageGroup}
+        onChange={(ag) => {
+          setAgeGroup(ag);
+          setOpenDomain(null);
+        }}
+      />
 
-      {error && <p className="error-text">{error}</p>}
+      {error && <ErrorState message={error} onRetry={loadDomains} />}
 
-      <div className="browser-cols">
-        <section className="col">
-          <div className="col-head">
-            <h2>תחומים</h2>
-            <button type="button" className="btn-ghost" onClick={addDomain}>
-              + תחום
-            </button>
-          </div>
-          {!domains && <p className="muted">טוען…</p>}
-          <ul className="list">
-            {domains?.map((d, i) => (
-              <li key={d.id} className={openDomain?.id === d.id ? 'active' : ''}>
-                <div className="reorder">
-                  <button
-                    type="button"
-                    className="link"
-                    disabled={i === 0}
-                    onClick={() => moveDomain(d, -1)}
-                  >
-                    ↑
-                  </button>
-                  <button
-                    type="button"
-                    className="link"
-                    disabled={i === domains.length - 1}
-                    onClick={() => moveDomain(d, 1)}
-                  >
-                    ↓
-                  </button>
-                </div>
-                <button type="button" className="list-main" onClick={() => loadSubdomains(d)}>
-                  {d.name}
-                </button>
-                <button type="button" className="link" onClick={() => renameDomain(d)}>
-                  שנה שם
-                </button>
-                <button type="button" className="link danger" onClick={() => deleteDomain(d)}>
-                  מחק
-                </button>
-              </li>
-            ))}
-            {domains?.length === 0 && <li className="muted">אין תחומים עדיין.</li>}
-          </ul>
-        </section>
-
-        <section className="col">
-          <div className="col-head">
-            <h2>{openDomain ? `תת-תחומים · ${openDomain.name}` : 'תת-תחומים'}</h2>
-            {openDomain && (
-              <button
-                type="button"
-                className="btn-ghost"
-                onClick={() => setEditing({ domainId: openDomain.id, subdomainId: null })}
-              >
-                + תת-תחום
-              </button>
-            )}
-          </div>
-          {!openDomain && <p className="muted">בחר תחום כדי לראות את תתי-התחומים שלו.</p>}
-          {openDomain && !subdomains && <p className="muted">טוען…</p>}
-          <ul className="list">
-            {subdomains?.map((s, i) => (
-              <li key={s.id}>
-                <div className="reorder">
-                  <button
-                    type="button"
-                    className="link"
-                    disabled={i === 0}
-                    onClick={() => moveSubdomain(s, -1)}
-                  >
-                    ↑
-                  </button>
-                  <button
-                    type="button"
-                    className="link"
-                    disabled={i === subdomains.length - 1}
-                    onClick={() => moveSubdomain(s, 1)}
-                  >
-                    ↓
-                  </button>
-                </div>
-                <button
-                  type="button"
-                  className="list-main"
-                  onClick={() => setEditing({ domainId: s.domainId, subdomainId: s.id })}
+      <div className="grid gap-4 lg:grid-cols-[1fr_1.4fr]">
+        <Card>
+          <CardHeader
+            title="תחומים"
+            actions={
+              <Button type="button" size="sm" variant="outline" onClick={() => setDomainDialog({ kind: 'add' })}>
+                + תחום
+              </Button>
+            }
+          />
+          <CardBody>
+            {!domains && <p className="text-sm text-muted-foreground">טוען…</p>}
+            <ul className="grid divide-y divide-border overflow-hidden rounded-lg border border-border">
+              {domains?.map((d, i) => (
+                <li
+                  key={d.id}
+                  className={`flex items-center gap-2 px-3 py-2 ${openDomain?.id === d.id ? 'bg-accent' : ''}`}
                 >
-                  {s.name}
-                  <span className="badge">{engineRegistry.get(s.gameType).meta.label}</span>
-                  <span className="badge">רמה {s.level}</span>
-                  {!s.playable && <span className="badge">טרם פורסם</span>}
-                </button>
-                {s.playable && (
-                  <a
-                    className="link"
-                    href={subdomainPreviewUrl(s.id)}
-                    target="_blank"
-                    rel="noreferrer"
+                  <div className="grid text-xs leading-none text-muted-foreground">
+                    <button type="button" disabled={i === 0} onClick={() => moveDomain(d, -1)} className="disabled:opacity-30">
+                      ↑
+                    </button>
+                    <button
+                      type="button"
+                      disabled={i === domains.length - 1}
+                      onClick={() => moveDomain(d, 1)}
+                      className="disabled:opacity-30"
+                    >
+                      ↓
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    className="flex-1 text-start text-sm"
+                    onClick={() => loadSubdomains(d)}
                   >
-                    שחק
-                  </a>
-                )}
-                <button type="button" className="link" onClick={() => duplicateSubdomain(s)}>
-                  שכפל
-                </button>
-                <button type="button" className="link danger" onClick={() => deleteSubdomain(s)}>
-                  מחק
-                </button>
-              </li>
-            ))}
-            {openDomain && subdomains?.length === 0 && (
-              <li className="muted">אין תת-תחומים לקבוצת הגיל הזו.</li>
-            )}
-          </ul>
-        </section>
+                    {d.name}
+                  </button>
+                  <Button type="button" size="sm" variant="ghost" onClick={() => setDomainDialog({ kind: 'rename', domain: d })}>
+                    שנה שם
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="text-destructive hover:text-destructive"
+                    onClick={() => setDomainDialog({ kind: 'delete', domain: d })}
+                  >
+                    מחק
+                  </Button>
+                </li>
+              ))}
+              {domains?.length === 0 && (
+                <li className="px-3 py-2 text-sm text-muted-foreground">אין תחומים עדיין.</li>
+              )}
+            </ul>
+          </CardBody>
+        </Card>
+
+        <Card>
+          <CardHeader
+            title={openDomain ? `תת-תחומים · ${openDomain.name}` : 'תת-תחומים'}
+            actions={
+              openDomain && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setEditing({ domainId: openDomain.id, subdomainId: null })}
+                >
+                  + תת-תחום
+                </Button>
+              )
+            }
+          />
+          <CardBody>
+            {!openDomain && <p className="text-sm text-muted-foreground">בחר תחום כדי לראות את תתי-התחומים שלו.</p>}
+            {openDomain && !subdomains && <p className="text-sm text-muted-foreground">טוען…</p>}
+            <ul className="grid divide-y divide-border overflow-hidden rounded-lg border border-border">
+              {subdomains?.map((s, i) => (
+                <li key={s.id} className="flex items-center gap-2 px-3 py-2">
+                  <div className="grid text-xs leading-none text-muted-foreground">
+                    <button type="button" disabled={i === 0} onClick={() => moveSubdomain(s, -1)} className="disabled:opacity-30">
+                      ↑
+                    </button>
+                    <button
+                      type="button"
+                      disabled={i === subdomains.length - 1}
+                      onClick={() => moveSubdomain(s, 1)}
+                      className="disabled:opacity-30"
+                    >
+                      ↓
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    className="flex flex-1 flex-wrap items-center gap-2 text-start text-sm"
+                    onClick={() => setEditing({ domainId: s.domainId, subdomainId: s.id })}
+                  >
+                    {s.name}
+                    <Badge>{GAME_TYPE_LABELS[s.gameType] ?? engineRegistry.get(s.gameType).meta.label}</Badge>
+                    <Badge tone="neutral">רמה {s.level}</Badge>
+                    {!s.playable && <Badge tone="partial">טרם פורסם</Badge>}
+                  </button>
+                  {s.playable && (
+                    <a
+                      className="text-sm font-semibold text-primary"
+                      href={subdomainPreviewUrl(s.id)}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      שחק
+                    </a>
+                  )}
+                  <Button type="button" size="sm" variant="ghost" onClick={() => duplicateSubdomain(s)}>
+                    שכפל
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="text-destructive hover:text-destructive"
+                    onClick={() => setSubdomainDialog({ kind: 'delete', subdomain: s })}
+                  >
+                    מחק
+                  </Button>
+                </li>
+              ))}
+              {openDomain && subdomains?.length === 0 && (
+                <li className="px-3 py-2 text-sm text-muted-foreground">אין תת-תחומים לקבוצת הגיל הזו.</li>
+              )}
+            </ul>
+          </CardBody>
+        </Card>
       </div>
+
+      <NameDialog
+        open={domainDialog?.kind === 'add'}
+        title="תחום חדש"
+        fieldLabel="שם התחום"
+        initialValue=""
+        confirmLabel="צור"
+        onCancel={() => setDomainDialog(null)}
+        onConfirm={async (name) => {
+          await contentApi.createDomain({ name, orderIndex: domains?.length ?? 0 });
+          setDomainDialog(null);
+          loadDomains();
+        }}
+      />
+
+      <NameDialog
+        open={domainDialog?.kind === 'rename'}
+        title="שינוי שם תחום"
+        fieldLabel="שם חדש"
+        initialValue={domainDialog?.kind === 'rename' ? domainDialog.domain.name : ''}
+        confirmLabel="שמור"
+        onCancel={() => setDomainDialog(null)}
+        onConfirm={async (name) => {
+          if (domainDialog?.kind !== 'rename') return;
+          await contentApi.updateDomain(domainDialog.domain.id, { name });
+          setDomainDialog(null);
+          loadDomains();
+        }}
+      />
+
+      <DeleteDialog
+        open={domainDialog?.kind === 'delete'}
+        itemName={domainDialog?.kind === 'delete' ? domainDialog.domain.name : ''}
+        onCancel={() => setDomainDialog(null)}
+        onConfirm={async () => {
+          if (domainDialog?.kind !== 'delete') return;
+          await contentApi.deleteDomain(domainDialog.domain.id);
+          if (openDomain?.id === domainDialog.domain.id) setOpenDomain(null);
+          setDomainDialog(null);
+          loadDomains();
+        }}
+      />
+
+      <DeleteDialog
+        open={subdomainDialog?.kind === 'delete'}
+        itemName={subdomainDialog?.kind === 'delete' ? subdomainDialog.subdomain.name : ''}
+        onCancel={() => setSubdomainDialog(null)}
+        onConfirm={async () => {
+          if (subdomainDialog?.kind !== 'delete') return;
+          await contentApi.deleteSubdomain(subdomainDialog.subdomain.id);
+          setSubdomainDialog(null);
+          if (openDomain) loadSubdomains(openDomain);
+        }}
+      />
     </div>
   );
 }

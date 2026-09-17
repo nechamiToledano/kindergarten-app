@@ -32,14 +32,8 @@ describe('seeded content', () => {
   });
 
   it('covers every registered game type', () => {
-    // PUZZLE is deliberately unused: the M12 spec audit found every puzzle
-    // subdomain is a physical wooden puzzle the teacher administers by hand
-    // (Spec §9), not a digital drag-to-place game — they're MANUAL_OBSERVATION
-    // now. The plugin stays registered for any future digital puzzle content.
-    const exempt = new Set(['PUZZLE']);
     const used = new Set(allSubdomains.map((s) => s.sub.config.gameType));
     for (const plugin of registry.all()) {
-      if (exempt.has(plugin.id)) continue;
       expect(used, `no seeded subdomain uses ${plugin.id}`).toContain(plugin.id);
     }
   });

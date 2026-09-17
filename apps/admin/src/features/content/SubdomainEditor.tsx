@@ -9,8 +9,10 @@ import {
   type SubdomainForPlay,
   type SubdomainLevel,
 } from '@kga/contracts';
+import { Badge, Button, Field, Input, Select, Switch, Textarea } from '@kga/ui';
 import { engineRegistry } from '../../shared/engine';
 import { contentApi } from './api';
+import { GAME_TYPE_LABELS } from './fieldLabels';
 import { HotspotEditor } from './HotspotEditor';
 import { SchemaForm, blankValue, type JsonSchema } from './SchemaForm';
 
@@ -76,10 +78,10 @@ export function SubdomainEditor({
 
   const [config, setConfig] = useState<Record<string, unknown>>(
     () =>
-      blankValue(toJsonSchema('BINARY_IMAGE_CHOICE'), { defs: {}, hints: {} }) as Record<
-        string,
-        unknown
-      >,
+      blankValue(toJsonSchema('BINARY_IMAGE_CHOICE'), {
+        defs: {},
+        gameType: 'BINARY_IMAGE_CHOICE',
+      }) as Record<string, unknown>,
   );
 
   // An ungraded worked example shown before the scored trial (§ demoConfig).
@@ -128,7 +130,7 @@ export function SubdomainEditor({
   const assets: AssetRef[] = parsed.success ? plugin.assetsOf(parsed.data as never) : [];
 
   function switchGameType(gameType: GameTypeId) {
-    const next = blankValue(toJsonSchema(gameType), { defs: {}, hints: {} }) as Record<
+    const next = blankValue(toJsonSchema(gameType), { defs: {}, gameType }) as Record<
       string,
       unknown
     >;
@@ -138,9 +140,7 @@ export function SubdomainEditor({
     // The demo, if any, must be the same game type as the real trial — reblank
     // it rather than leave a stale config for a different mechanic behind.
     setDemoConfig((d) =>
-      d === null
-        ? null
-        : (blankValue(toJsonSchema(gameType), { defs: {}, hints: {} }) as Record<string, unknown>),
+      d === null ? null : (blankValue(toJsonSchema(gameType), { defs: {}, gameType }) as Record<string, unknown>),
     );
   }
 
@@ -159,8 +159,7 @@ export function SubdomainEditor({
     }
   }
 
-  const demoParsed =
-    demoConfig === null ? null : plugin.configSchema.safeParse(demoConfig);
+  const demoParsed = demoConfig === null ? null : plugin.configSchema.safeParse(demoConfig);
   const demoIssues: { path: (string | number | symbol)[]; message: string }[] =
     demoParsed && !demoParsed.success ? demoParsed.error.issues : [];
 
@@ -197,35 +196,38 @@ export function SubdomainEditor({
     }
   }
 
-  if (loading) return <p className="muted pad">טוען תת-תחום…</p>;
+  if (loading) return <p className="p-6 text-sm text-muted-foreground">טוען תת-תחום…</p>;
 
   return (
-    <div className="editor">
-      <header className="editor-head">
-        <h2>{existing ? `עריכת תת-תחום · v${existing.version ?? 1}` : 'תת-תחום חדש'}</h2>
-        <button type="button" className="btn-ghost" onClick={onCancel}>
+    <div className="grid gap-6">
+      <header className="flex items-center justify-between gap-3">
+        <h2 className="font-display text-lg font-semibold">
+          {existing ? `עריכת תת-תחום · גרסה ${existing.version ?? 1}` : 'תת-תחום חדש'}
+        </h2>
+        <Button type="button" variant="outline" onClick={onCancel}>
           חזרה
-        </button>
+        </Button>
       </header>
 
-      <div className="sf">
-        <label className="sf-field">
-          <span className="sf-label">שם</span>
-          <input value={meta.name} onChange={(e) => setMeta({ ...meta, name: e.target.value })} />
-        </label>
-        <fieldset className="sf-field">
-          <span className="sf-label">קבוצות גיל</span>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label="שם">
+          <Input value={meta.name} onChange={(e) => setMeta({ ...meta, name: e.target.value })} />
+        </Field>
+
+        <div className="flex flex-col gap-1.5 sm:col-span-2">
+          <span className="text-sm font-medium">קבוצות גיל</span>
           {/* M10 §1 — age lives here now, and a subdomain may apply to more than
               one band. At least one must stay selected; the API rejects an empty
               list, and a game that applies to no age is unreachable content. */}
-          <div className="row">
+          <div className="flex flex-wrap gap-1.5">
             {AGE_GROUPS.map((ag) => {
               const on = meta.ageGroups.includes(ag);
               return (
-                <button
+                <Button
                   key={ag}
                   type="button"
-                  className={`tab ${on ? 'tab-active' : ''}`}
+                  size="sm"
+                  variant={on ? 'secondary' : 'outline'}
                   aria-pressed={on}
                   onClick={() =>
                     setMeta((m) => {
@@ -237,119 +239,119 @@ export function SubdomainEditor({
                   }
                 >
                   {AGE_LABEL[ag]}
-                </button>
+                </Button>
               );
             })}
           </div>
-        </fieldset>
-        <label className="sf-field">
-          <span className="sf-label">רמת קושי</span>
-          <select
-            value={meta.level}
-            onChange={(e) =>
-              setMeta({ ...meta, level: Number(e.target.value) as SubdomainLevel })
-            }
+        </div>
+
+        <Field label="רמת קושי">
+          <Select
+            value={String(meta.level)}
+            onChange={(e) => setMeta({ ...meta, level: Number(e.target.value) as SubdomainLevel })}
           >
             {LEVELS.map((l) => (
               <option key={l.value} value={l.value}>
                 {l.label}
               </option>
             ))}
-          </select>
-        </label>
-        <label className="sf-field">
-          <span className="sf-label">סדר</span>
-          <input
+          </Select>
+        </Field>
+
+        <Field label="סדר">
+          <Input
             type="number"
             value={meta.orderIndex}
             onChange={(e) => setMeta({ ...meta, orderIndex: Number(e.target.value) })}
           />
-        </label>
-        <label className="sf-field">
-          <span className="sf-label">הוראת גננת</span>
-          <textarea
-            rows={2}
-            value={meta.teacherInstruction}
-            onChange={(e) => setMeta({ ...meta, teacherInstruction: e.target.value })}
-          />
-        </label>
-        <label className="sf-field">
-          <span className="sf-label">הוראת ילד</span>
-          <textarea
-            rows={2}
-            value={meta.childInstruction}
-            onChange={(e) => setMeta({ ...meta, childInstruction: e.target.value })}
-          />
-        </label>
-        <label className="sf-field">
-          <span className="sf-label">סוג משחק</span>
-          <select
-            value={meta.gameType}
-            onChange={(e) => switchGameType(e.target.value as GameTypeId)}
-          >
-            {GAME_TYPES.map((gt) => (
-              <option key={gt} value={gt}>
-                {engineRegistry.get(gt).meta.label} ({gt})
-              </option>
-            ))}
-          </select>
-        </label>
+        </Field>
+
+        <div className="sm:col-span-2">
+          <Field label="הוראת גננת">
+            <Textarea
+              rows={2}
+              value={meta.teacherInstruction}
+              onChange={(e) => setMeta({ ...meta, teacherInstruction: e.target.value })}
+            />
+          </Field>
+        </div>
+
+        <div className="sm:col-span-2">
+          <Field label="הוראת ילד">
+            <Textarea
+              rows={2}
+              value={meta.childInstruction}
+              onChange={(e) => setMeta({ ...meta, childInstruction: e.target.value })}
+            />
+          </Field>
+        </div>
+
+        <div className="sm:col-span-2">
+          <Field label="סוג משחק">
+            <Select value={meta.gameType} onChange={(e) => switchGameType(e.target.value as GameTypeId)}>
+              {GAME_TYPES.map((gt) => (
+                <option key={gt} value={gt}>
+                  {GAME_TYPE_LABELS[gt]}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        </div>
       </div>
 
-      <div className="editor-config">
-        <div className="editor-config-head">
-          <h3>תצורת המשחק — {plugin.meta.label}</h3>
-          <button type="button" className="btn-ghost" onClick={() => setRawMode((r) => !r)}>
-            {rawMode ? 'טופס' : 'JSON גולמי'}
-          </button>
+      <div className="grid gap-3">
+        <div className="flex items-center justify-between gap-3">
+          <h3 className="text-sm font-semibold text-muted-foreground">
+            תצורת המשחק — {GAME_TYPE_LABELS[meta.gameType]}
+          </h3>
+          <Button type="button" variant="outline" size="sm" onClick={() => setRawMode((r) => !r)}>
+            {rawMode ? 'חזרה לטופס' : 'עריכה מתקדמת (JSON)'}
+          </Button>
         </div>
 
         {rawMode ? (
-          <textarea
-            className="raw-json"
-            rows={16}
-            value={rawText}
-            onChange={(e) => onRawChange(e.target.value)}
-          />
+          <div className="grid gap-1.5">
+            <p className="text-xs text-muted-foreground">
+              עריכה ישירה של תצורת המשחק בפורמט JSON — מיועדת למשתמש מנוסה; שגיאת תחביר תמנע שמירה.
+            </p>
+            <Textarea
+              className="font-mono text-xs"
+              rows={16}
+              value={rawText}
+              onChange={(e) => onRawChange(e.target.value)}
+            />
+          </div>
         ) : meta.gameType === 'HOTSPOT_IMAGE' ? (
           <HotspotEditor value={config} onChange={applyConfig} />
         ) : (
-          <SchemaForm
-            jsonSchema={jsonSchema}
-            hints={plugin.meta.hints}
-            value={config}
-            onChange={applyConfig}
-          />
+          <SchemaForm jsonSchema={jsonSchema} gameType={meta.gameType} value={config} onChange={applyConfig} />
         )}
       </div>
 
       {issues.length > 0 && (
-        <ul className="issues">
+        <ul className="grid gap-1 rounded-lg border border-destructive bg-absent-soft px-4 py-3 text-sm">
           {issues.map((iss, i) => (
             <li key={i}>
-              <code>{iss.path.join('.') || '(root)'}</code> — {iss.message}
+              <code>{iss.path.join('.') || '(שורש)'}</code> — {iss.message}
             </li>
           ))}
         </ul>
       )}
 
-      <div className="editor-config">
-        <div className="editor-config-head">
-          <h3>דוגמה מודגמת (לא לניקוד)</h3>
-          <label className="row" style={{ gap: '0.4rem' }}>
-            <input
-              type="checkbox"
-              checked={demoConfig !== null}
-              onChange={(e) =>
-                setDemoConfig(
-                  e.target.checked
-                    ? (blankValue(jsonSchema, { defs: {}, hints: {} }) as Record<string, unknown>)
-                    : null,
-                )
-              }
-            />
-            הצג דוגמה לילד לפני הניסוי המנוקד
-          </label>
+      <div className="grid gap-3">
+        <div className="flex items-center justify-between gap-3">
+          <h3 className="text-sm font-semibold text-muted-foreground">דוגמה מודגמת (לא לניקוד)</h3>
+          <Switch
+            checked={demoConfig !== null}
+            onChange={(checked) =>
+              setDemoConfig(
+                checked
+                  ? (blankValue(jsonSchema, { defs: {}, gameType: meta.gameType }) as Record<string, unknown>)
+                  : null,
+              )
+            }
+            label="הצג דוגמה לילד לפני הניסוי המנוקד"
+          />
         </div>
         {demoConfig !== null &&
           (meta.gameType === 'HOTSPOT_IMAGE' ? (
@@ -357,16 +359,16 @@ export function SubdomainEditor({
           ) : (
             <SchemaForm
               jsonSchema={jsonSchema}
-              hints={plugin.meta.hints}
+              gameType={meta.gameType}
               value={demoConfig}
               onChange={setDemoConfig}
             />
           ))}
         {demoIssues.length > 0 && (
-          <ul className="issues">
+          <ul className="grid gap-1 rounded-lg border border-destructive bg-absent-soft px-4 py-3 text-sm">
             {demoIssues.map((iss, i) => (
               <li key={i}>
-                <code>{iss.path.join('.') || '(root)'}</code> — {iss.message}
+                <code>{iss.path.join('.') || '(שורש)'}</code> — {iss.message}
               </li>
             ))}
           </ul>
@@ -374,32 +376,33 @@ export function SubdomainEditor({
       </div>
 
       {assets.length > 0 && (
-        <div className="assets">
-          <h4>נכסים ({assets.length})</h4>
-          <ul>
+        <div className="grid gap-1.5">
+          <h4 className="text-sm font-semibold text-muted-foreground">נכסים ({assets.length})</h4>
+          <ul className="grid gap-1 text-sm">
             {assets.map((a, i) => (
-              <li key={i}>
-                <span className="badge">{a.kind}</span> <code>{a.url}</code>
+              <li key={i} className="flex items-center gap-2">
+                <Badge>{a.kind === 'image' ? 'תמונה' : 'שמע'}</Badge>
+                <code className="truncate">{a.url}</code>
               </li>
             ))}
           </ul>
         </div>
       )}
 
-      {error && <p className="error-text">{error}</p>}
+      {error && <p className="text-sm font-semibold text-destructive">{error}</p>}
 
-      <div className="row editor-actions">
-        <button
+      <div className="flex flex-wrap items-center gap-3">
+        <Button
           type="button"
-          className="btn-primary"
           disabled={busy || !parsed.success || !meta.name || (demoParsed !== null && !demoParsed.success)}
+          loading={busy}
           onClick={save}
         >
-          {busy ? 'שומר…' : existing ? 'שמור שינויים' : 'צור תת-תחום'}
-        </button>
+          {existing ? 'שמור שינויים' : 'צור תת-תחום'}
+        </Button>
         {existing && parsed.success && (
-          <span className="muted">
-            שינוי תצורה חותם גרסה חדשה (§9.3) — תוצאות קיימות נשארות מקושרות לגרסה הקודמת.
+          <span className="text-sm text-muted-foreground">
+            שינוי תצורה חותם גרסה חדשה — תוצאות קיימות נשארות מקושרות לגרסה הקודמת.
           </span>
         )}
       </div>

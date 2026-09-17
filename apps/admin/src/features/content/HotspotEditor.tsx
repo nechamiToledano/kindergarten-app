@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { Badge, Field, Input } from '@kga/ui';
 import { AssetPicker } from '../media/AssetPicker';
 
 /**
@@ -27,6 +28,13 @@ type Config = {
 
 const clamp01 = (n: number) => Math.min(1, Math.max(0, n));
 const pct = (n: number) => `${(n * 100).toFixed(2)}%`;
+
+const COORD_LABEL: Record<'x' | 'y' | 'width' | 'height', string> = {
+  x: 'מיקום אופקי (X)',
+  y: 'מיקום אנכי (Y)',
+  width: 'רוחב',
+  height: 'גובה',
+};
 
 function normalizeConfig(value: Record<string, unknown>): Config {
   return {
@@ -123,59 +131,33 @@ export function HotspotEditor({
   }
 
   return (
-    <div className="hs">
-      <div className="sf">
-        <div className="sf-field">
-          <span className="sf-label">שמע ההוראה</span>
-          <AssetPicker
-            kind="audio"
-            value={cfg.promptAudioUrl}
-            onChange={(url) => patch({ promptAudioUrl: url })}
-          />
-        </div>
+    <div className="grid gap-4">
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label="שמע ההוראה">
+          <AssetPicker kind="audio" value={cfg.promptAudioUrl} onChange={(url) => patch({ promptAudioUrl: url })} />
+        </Field>
 
-        <div className="sf-field">
-          <span className="sf-label">התמונה</span>
-          <AssetPicker
-            kind="image"
-            value={cfg.imageUrl}
-            onChange={(url) => patch({ imageUrl: url })}
-          />
-        </div>
+        <Field label="התמונה">
+          <AssetPicker kind="image" value={cfg.imageUrl} onChange={(url) => patch({ imageUrl: url })} />
+        </Field>
       </div>
 
-      <p className="sf-hint">גרור על התמונה כדי לצייר אזור מגע. לחץ על אזור קיים כדי לבחור אותו.</p>
+      <p className="text-xs text-muted-foreground">
+        גרור על התמונה כדי לצייר אזור מגע. לחץ על אזור קיים כדי לבחור אותו.
+      </p>
 
       <div
         ref={surfaceRef}
-        className="hs-surface"
         onPointerDown={onPointerDown}
-        style={{
-          position: 'relative',
-          inlineSize: '100%',
-          aspectRatio: '1 / 1',
-          maxInlineSize: 560,
-          border: '1px solid var(--border)',
-          borderRadius: 12,
-          overflow: 'hidden',
-          background: 'var(--code-bg)',
-          touchAction: 'none',
-          cursor: 'crosshair',
-        }}
+        className="relative w-full max-w-[560px] overflow-hidden rounded-xl border border-border bg-muted"
+        style={{ aspectRatio: '1 / 1', touchAction: 'none', cursor: 'crosshair' }}
       >
         {cfg.imageUrl && (
           <img
             src={cfg.imageUrl}
             alt=""
             draggable={false}
-            style={{
-              position: 'absolute',
-              inset: 0,
-              inlineSize: '100%',
-              blockSize: '100%',
-              objectFit: 'contain',
-              pointerEvents: 'none',
-            }}
+            className="pointer-events-none absolute inset-0 size-full object-contain"
           />
         )}
         {[...cfg.targets, ...(draft ? [draft] : [])].map((t) => {
@@ -189,58 +171,65 @@ export function HotspotEditor({
                 e.stopPropagation();
                 setSelected(t.id);
               }}
+              className="absolute box-border"
               style={{
-                position: 'absolute',
                 insetInlineStart: pct(t.x),
                 insetBlockStart: pct(t.y),
                 inlineSize: pct(t.width),
                 blockSize: pct(t.height),
-                border: `2px solid ${isSel ? 'var(--accent)' : isCorrect ? '#16a34a' : 'rgba(0,0,0,0.5)'}`,
-                background: isCorrect ? 'rgba(22,163,74,0.15)' : 'rgba(170,59,255,0.08)',
-                boxSizing: 'border-box',
+                border: `2px solid ${isSel ? 'var(--color-primary)' : isCorrect ? 'var(--color-present)' : 'rgba(0,0,0,0.5)'}`,
+                background: isCorrect ? 'var(--color-present-soft)' : 'rgba(170,59,255,0.08)',
               }}
             />
           );
         })}
       </div>
 
-      <ul className="list hs-list">
+      <ul className="grid divide-y divide-border overflow-hidden rounded-lg border border-border">
         {cfg.targets.map((t) => (
-          <li key={t.id} className={selected === t.id ? 'active' : ''}>
+          <li
+            key={t.id}
+            className={`flex items-center gap-2 px-3 py-2 ${selected === t.id ? 'bg-accent' : ''}`}
+          >
             <button
               type="button"
-              className="list-main"
+              className="flex flex-1 items-center gap-2 text-start text-sm"
               onClick={() => setSelected(t.id === selected ? null : t.id)}
             >
               <code>{t.id}</code>
-              {cfg.correctTargetIds.includes(t.id) && <span className="badge">נכון</span>}
+              {cfg.correctTargetIds.includes(t.id) && <Badge tone="present">תשובה נכונה</Badge>}
             </button>
-            <label className="sf-hint">
+            <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
               <input
                 type="checkbox"
                 checked={cfg.correctTargetIds.includes(t.id)}
                 onChange={() => toggleCorrect(t.id)}
-              />{' '}
+              />
               תשובה נכונה
             </label>
-            <button type="button" className="link danger" onClick={() => removeTarget(t.id)}>
+            <button
+              type="button"
+              className="text-sm font-semibold text-destructive"
+              onClick={() => removeTarget(t.id)}
+            >
               מחק
             </button>
           </li>
         ))}
-        {cfg.targets.length === 0 && <li className="muted">אין אזורי מגע עדיין.</li>}
+        {cfg.targets.length === 0 && (
+          <li className="px-3 py-2 text-sm text-muted-foreground">אין אזורי מגע עדיין.</li>
+        )}
       </ul>
 
       {selected && (
-        <fieldset className="sf-object">
-          <legend>אזור {selected}</legend>
+        <fieldset className="grid gap-3 rounded-lg border border-border p-3.5">
+          <legend className="px-1 text-xs font-semibold text-muted-foreground">אזור {selected}</legend>
           {(['x', 'y', 'width', 'height'] as const).map((k) => {
             const t = cfg.targets.find((tt) => tt.id === selected);
             if (!t) return null;
             return (
-              <label className="sf-field" key={k}>
-                <span className="sf-label">{k}</span>
-                <input
+              <Field label={COORD_LABEL[k]} key={k}>
+                <Input
                   type="number"
                   step={0.01}
                   min={0}
@@ -248,7 +237,7 @@ export function HotspotEditor({
                   value={t[k]}
                   onChange={(e) => updateTarget(selected, { [k]: clamp01(Number(e.target.value)) })}
                 />
-              </label>
+              </Field>
             );
           })}
         </fieldset>

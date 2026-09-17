@@ -1,5 +1,8 @@
 import { useMemo } from 'react';
+import type { GameTypeId } from '@kga/contracts';
+import { Button, Field, Input, Select, Switch, Textarea } from '@kga/ui';
 import { AssetPicker } from '../media/AssetPicker';
+import { enumValueLabelOf, fieldHintOf, fieldLabelOf } from './fieldLabels';
 
 /**
  * §14.1 — the admin editor is *generated* from a game plugin's `configSchema`,
@@ -7,6 +10,10 @@ import { AssetPicker } from '../media/AssetPicker';
  * (`z.toJSONSchema`, Zod v4) once and render fields recursively from that. A new
  * game type becomes editable the moment its plugin is registered, with zero
  * admin-side work.
+ *
+ * Field/hint/enum text is Hebrew, resolved through `fieldLabels.ts` by the raw
+ * schema key or dotted path — the schema keys themselves (what gets saved)
+ * never change, only what's shown.
  */
 
 export type JsonSchema = {
@@ -30,7 +37,7 @@ export type JsonSchema = {
   $defs?: Record<string, JsonSchema>;
 };
 
-type Ctx = { defs: Record<string, JsonSchema>; hints: Record<string, string> };
+type Ctx = { defs: Record<string, JsonSchema>; gameType: GameTypeId };
 
 function deref(schema: JsonSchema, ctx: Ctx): JsonSchema {
   if (schema.$ref) {
@@ -50,9 +57,8 @@ function typeOf(schema: JsonSchema): string | undefined {
  * generated form swap a plain text box for the media-library picker without
  * each game plugin having to declare it.
  */
-function assetKindOf(path: string): 'image' | 'audio' | null {
-  const key = (path.split('.').pop() ?? '').replace(/\[\]$/, '');
-  if (!/url$/i.test(key)) return null;
+function assetKindOf(key: string): 'image' | 'audio' | null {
+  if (!/urls?$/i.test(key)) return null;
   if (/audio/i.test(key)) return 'audio';
   if (/image/i.test(key)) return 'image';
   return null;
@@ -85,29 +91,35 @@ function blankValue(schema: JsonSchema, ctx: Ctx): unknown {
   }
 }
 
-function Field({
-  label,
+function Field_({
+  fieldKey,
   schema,
   value,
   onChange,
   ctx,
   path,
 }: {
-  label: string;
+  /** The raw schema property name (or `#index` marker for array items). */
+  fieldKey: string;
   schema: JsonSchema;
   value: unknown;
   onChange: (v: unknown) => void;
   ctx: Ctx;
   path: string;
+  /** For an array-of-scalar item: the asset kind of the *array's* own key, since the
+   * item's fieldKey is replaced with a "#item N" placeholder before it reaches here. */
+  forcedAssetKind?: 'image' | 'audio' | null;
 }) {
   const s = deref(schema, ctx);
-  const hint = ctx.hints[path] ?? ctx.hints[label] ?? s.description;
+  const isArrayItem = fieldKey.startsWith('#');
+  const label = isArrayItem ? fieldKey.slice(1) : fieldLabelOf(ctx.gameType, path, fieldKey);
+  const hint = isArrayItem ? undefined : fieldHintOf(ctx.gameType, path, fieldKey) ?? s.description;
 
   // Fixed literal (e.g. the gameType discriminant) — show, don't edit.
   if (s.const !== undefined) {
     return (
-      <div className="sf-field">
-        <span className="sf-label">{label}</span>
+      <div className="flex items-center gap-2 text-sm">
+        <span className="font-medium">{label}</span>
         <code>{String(s.const)}</code>
       </div>
     );
@@ -115,17 +127,15 @@ function Field({
 
   if (s.enum) {
     return (
-      <label className="sf-field">
-        <span className="sf-label">{label}</span>
-        <select value={String(value ?? '')} onChange={(e) => onChange(e.target.value)}>
+      <Field label={label} hint={hint}>
+        <Select value={String(value ?? '')} onChange={(e) => onChange(e.target.value)}>
           {s.enum.map((opt) => (
             <option key={String(opt)} value={String(opt)}>
-              {String(opt)}
+              {enumValueLabelOf(ctx.gameType, path, String(opt))}
             </option>
           ))}
-        </select>
-        {hint && <span className="sf-hint">{hint}</span>}
-      </label>
+        </Select>
+      </Field>
     );
   }
 
@@ -133,23 +143,17 @@ function Field({
 
   if (t === 'boolean') {
     return (
-      <label className="sf-field sf-inline">
-        <input
-          type="checkbox"
-          checked={Boolean(value)}
-          onChange={(e) => onChange(e.target.checked)}
-        />
-        <span className="sf-label">{label}</span>
-        {hint && <span className="sf-hint">{hint}</span>}
-      </label>
+      <div className="flex flex-col gap-1">
+        <Switch checked={Boolean(value)} onChange={onChange} label={label} />
+        {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
+      </div>
     );
   }
 
   if (t === 'number' || t === 'integer') {
     return (
-      <label className="sf-field">
-        <span className="sf-label">{label}</span>
-        <input
+      <Field label={label} hint={hint}>
+        <Input
           type="number"
           value={value === '' || value === undefined ? '' : Number(value)}
           step={t === 'integer' ? 1 : 'any'}
@@ -157,50 +161,41 @@ function Field({
           max={s.maximum}
           onChange={(e) => onChange(e.target.value === '' ? '' : Number(e.target.value))}
         />
-        {hint && <span className="sf-hint">{hint}</span>}
-      </label>
+      </Field>
     );
   }
 
   if (t === 'string') {
-    const assetKind = assetKindOf(path);
+    const assetKind = isArrayItem ? forcedAssetKind : assetKindOf(fieldKey);
     if (assetKind) {
       return (
-        <div className="sf-field">
-          <span className="sf-label">{label}</span>
+        <Field label={label} hint={hint}>
           <AssetPicker kind={assetKind} value={String(value ?? '')} onChange={onChange} />
-          {hint && <span className="sf-hint">{hint}</span>}
-        </div>
+        </Field>
       );
     }
-    const long = (s.maxLength ?? 0) > 120 || label.toLowerCase().includes('instruction');
+    const long = (s.maxLength ?? 0) > 120 || /instruction|prompt/i.test(fieldKey);
     return (
-      <label className="sf-field">
-        <span className="sf-label">{label}</span>
+      <Field label={label} hint={hint}>
         {long ? (
-          <textarea
-            rows={2}
-            value={String(value ?? '')}
-            onChange={(e) => onChange(e.target.value)}
-          />
+          <Textarea rows={2} value={String(value ?? '')} onChange={(e) => onChange(e.target.value)} />
         ) : (
-          <input value={String(value ?? '')} onChange={(e) => onChange(e.target.value)} />
+          <Input value={String(value ?? '')} onChange={(e) => onChange(e.target.value)} />
         )}
-        {hint && <span className="sf-hint">{hint}</span>}
-      </label>
+      </Field>
     );
   }
 
   if (t === 'object') {
     const val = (value ?? {}) as Record<string, unknown>;
     return (
-      <fieldset className="sf-object">
-        <legend>{label}</legend>
-        {hint && <span className="sf-hint">{hint}</span>}
+      <fieldset className="grid gap-3 rounded-lg border border-border p-3.5">
+        <legend className="px-1 text-xs font-semibold text-muted-foreground">{label}</legend>
+        {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
         {Object.entries(s.properties ?? {}).map(([key, sub]) => (
-          <Field
+          <Field_
             key={key}
-            label={key}
+            fieldKey={key}
             schema={sub}
             value={val[key]}
             ctx={ctx}
@@ -220,18 +215,20 @@ function Field({
     ) as JsonSchema | undefined;
     const canAdd = !tuple && (s.maxItems === undefined || arr.length < s.maxItems);
     const canRemove = !tuple && arr.length > (s.minItems ?? 0);
+    const itemAssetKind = tuple ? null : assetKindOf(fieldKey);
     return (
-      <fieldset className="sf-array">
-        <legend>{label}</legend>
-        {hint && <span className="sf-hint">{hint}</span>}
+      <fieldset className="grid gap-3 rounded-lg border border-border p-3.5">
+        <legend className="px-1 text-xs font-semibold text-muted-foreground">{label}</legend>
+        {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
         {arr.map((item, i) => (
-          <div className="sf-array-item" key={i}>
-            <Field
-              label={`#${i + 1}`}
+          <div className="grid gap-2 rounded-md border border-dashed border-border p-2.5" key={i}>
+            <Field_
+              fieldKey={`#פריט ${i + 1}`}
               schema={(tuple ? tuple[i] : itemSchema) ?? {}}
               value={item}
               ctx={ctx}
               path={`${path}[]`}
+              forcedAssetKind={itemAssetKind}
               onChange={(v) => {
                 const next = [...arr];
                 next[i] = v;
@@ -239,24 +236,28 @@ function Field({
               }}
             />
             {canRemove && (
-              <button
+              <Button
                 type="button"
-                className="btn-ghost sf-remove"
+                variant="ghost"
+                size="sm"
+                className="justify-self-start"
                 onClick={() => onChange(arr.filter((_, j) => j !== i))}
               >
                 הסר
-              </button>
+              </Button>
             )}
           </div>
         ))}
         {canAdd && (
-          <button
+          <Button
             type="button"
-            className="btn-ghost"
+            variant="outline"
+            size="sm"
+            className="justify-self-start"
             onClick={() => onChange([...arr, blankValue(itemSchema ?? {}, ctx)])}
           >
-            + הוסף
-          </button>
+            + הוספת פריט
+          </Button>
         )}
       </fieldset>
     );
@@ -264,10 +265,10 @@ function Field({
 
   // Fallback — anything the renderer doesn't model gets a JSON box.
   return (
-    <label className="sf-field">
-      <span className="sf-label">{label}</span>
-      <textarea
+    <Field label={label} hint={hint}>
+      <Textarea
         rows={2}
+        className="font-mono text-xs"
         value={JSON.stringify(value)}
         onChange={(e) => {
           try {
@@ -277,33 +278,29 @@ function Field({
           }
         }}
       />
-      {hint && <span className="sf-hint">{hint}</span>}
-    </label>
+    </Field>
   );
 }
 
 export function SchemaForm({
   jsonSchema,
-  hints,
+  gameType,
   value,
   onChange,
 }: {
   jsonSchema: JsonSchema;
-  hints: Record<string, string>;
+  gameType: GameTypeId;
   value: Record<string, unknown>;
   onChange: (v: Record<string, unknown>) => void;
 }) {
-  const ctx = useMemo<Ctx>(
-    () => ({ defs: jsonSchema.$defs ?? {}, hints }),
-    [jsonSchema, hints],
-  );
+  const ctx = useMemo<Ctx>(() => ({ defs: jsonSchema.$defs ?? {}, gameType }), [jsonSchema, gameType]);
   const root = deref(jsonSchema, ctx);
   return (
-    <div className="sf">
+    <div className="grid gap-4">
       {Object.entries(root.properties ?? {}).map(([key, sub]) => (
-        <Field
+        <Field_
           key={key}
-          label={key}
+          fieldKey={key}
           schema={sub}
           value={value[key]}
           ctx={ctx}

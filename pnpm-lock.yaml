@@ -26,6 +26,9 @@ importers:
       '@kga/game-engine':
         specifier: workspace:*
         version: link:../../packages/game-engine
+      '@kga/ui':
+        specifier: workspace:*
+        version: link:../../packages/ui
       react:
         specifier: ^19.2.8
         version: 19.2.8
@@ -39,6 +42,9 @@ importers:
       '@kga/config':
         specifier: workspace:*
         version: link:../../packages/config
+      '@tailwindcss/vite':
+        specifier: ^4.1.14
+        version: 4.3.3(vite@8.2.2(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.13))
       '@types/node':
         specifier: ^24.13.3
         version: 24.13.3
@@ -54,6 +60,9 @@ importers:
       oxlint:
         specifier: ^1.79.0
         version: 1.82.0
+      tailwindcss:
+        specifier: ^4.1.14
+        version: 4.3.3
       typescript:
         specifier: ~6.0.2
         version: 6.0.3

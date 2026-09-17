@@ -429,6 +429,21 @@ const AGE_3_4: AgeGroupContent = {
             observationPrompt: 'הילד/ה מרכיב/ה פאזל עץ של 4 חלקים, עצמאית או בעזרת תיווך.',
           },
         },
+        {
+          id: uuid('a3310000', 5),
+          name: 'פאזל 4 חלקים — גרסה דיגיטלית',
+          teacherInstruction:
+            'גרסה דיגיטלית להדגמה/תרגול (הפעילות הרשמית לאבחון היא הפאזל הפיזי למעלה). בַּקְּשִׁי מהילד/ה להרכיב את הפאזל על המסך.',
+          childInstruction: 'הקישו על חלק למטה, ואז הקישו על המשבצת שלו למעלה.',
+          config: {
+            gameType: 'PUZZLE',
+            promptAudioUrl: audio('פאזל-4-חיה-דיגיטלי'),
+            imageUrl: '/assets/puzzle-cow.png',
+            rows: 2,
+            cols: 2,
+            pieceCount: 4,
+          },
+        },
       ],
     },
     {

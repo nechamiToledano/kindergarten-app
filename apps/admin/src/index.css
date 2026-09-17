@@ -1,32 +1,55 @@
+@import 'tailwindcss';
+
+/* `packages/ui` lives outside this app's root, so Tailwind has to be told to
+   scan it — otherwise every class the shared components use is tree-shaken away
+   and the design system silently renders unstyled. */
+@source '../../../packages/ui/src';
+
 /*
- * apps/admin design tokens (M11 restyle) — the same sage/pine palette and type
- * system as apps/web/src/index.css, so the two products read as one system.
- * The admin app stays its own lightweight stylesheet (no @kga/ui/Tailwind
- * dependency, §14.5) but now shares the *values*, and the layout below reads
- * as a management console — a sidebar and dense tables — rather than the
- * centered, pill-tabbed page it used to be.
+ * apps/admin design tokens — synced to apps/web/src/index.css so the two
+ * products read as one system. Content editing, the shell nav, and the asset
+ * picker are built on @kga/ui + these Tailwind tokens; a few screens not yet
+ * migrated (staff, settings, audit, media library, login) still read the
+ * hand-written component classes further down this file, which is why those
+ * stay in place rather than being deleted wholesale.
  */
-:root {
-  --font-sans: 'Assistant', 'Segoe UI', system-ui, sans-serif;
+@theme {
+  --font-sans: 'Assistant', 'Heebo', 'Segoe UI', system-ui, sans-serif;
   --font-display: 'Rubik', 'Assistant', 'Segoe UI', system-ui, sans-serif;
+  --font-brand: 'Playpen Sans Hebrew', 'Rubik', 'Assistant', 'Segoe UI', system-ui, cursive;
 
   --color-background: oklch(0.985 0.006 95);
   --color-foreground: oklch(0.26 0.012 75);
   --color-card: oklch(1 0 0);
+  --color-card-foreground: oklch(0.26 0.012 75);
+
   --color-primary: oklch(0.52 0.062 168);
   --color-primary-foreground: oklch(0.985 0.01 150);
   --color-primary-hover: oklch(0.46 0.062 168);
+
   --color-secondary: oklch(0.965 0.008 110);
   --color-secondary-foreground: oklch(0.32 0.014 80);
   --color-muted: oklch(0.965 0.008 110);
   --color-muted-foreground: oklch(0.52 0.014 90);
   --color-accent: oklch(0.95 0.024 165);
   --color-accent-foreground: oklch(0.38 0.05 168);
+
   --color-border: oklch(0.912 0.008 100);
   --color-input: oklch(0.912 0.008 100);
   --color-ring: oklch(0.52 0.062 168);
   --color-destructive: oklch(0.585 0.17 28);
   --color-destructive-foreground: oklch(0.99 0.01 30);
+
+  --color-present: oklch(0.6 0.11 158);
+  --color-present-soft: oklch(0.955 0.03 160);
+  --color-support: oklch(0.6 0.1 230);
+  --color-support-soft: oklch(0.955 0.03 235);
+  --color-partial: oklch(0.62 0.1 72);
+  --color-partial-soft: oklch(0.96 0.04 85);
+  --color-absent: oklch(0.62 0.15 30);
+  --color-absent-soft: oklch(0.955 0.028 35);
+  --color-info: oklch(0.58 0.09 235);
+  --color-info-soft: oklch(0.955 0.03 235);
 
   --color-sidebar: oklch(0.975 0.008 110);
   --color-sidebar-foreground: oklch(0.32 0.012 80);
@@ -34,96 +57,120 @@
   --color-sidebar-accent: oklch(0.94 0.022 165);
   --color-sidebar-accent-foreground: oklch(0.36 0.05 168);
 
-  --radius-sm: 0.375rem;
-  --radius-md: 0.5rem;
-  --radius-lg: 0.65rem;
+  --color-chart-1: oklch(0.55 0.08 168);
+  --color-chart-2: oklch(0.65 0.09 205);
+  --color-chart-3: oklch(0.72 0.11 72);
+  --color-chart-4: oklch(0.64 0.14 32);
+  --color-chart-5: oklch(0.55 0.03 260);
+
+  --radius-sm: 0.5rem;
+  --radius-md: 0.7rem;
+  --radius-lg: 0.85rem;
+  --radius-xl: 1.2rem;
+  --radius-2xl: 1.5rem;
 
   --shadow-card: 0 1px 2px oklch(0.26 0.012 75 / 0.05), 0 1px 3px oklch(0.26 0.012 75 / 0.04);
+  --shadow-float: 0 12px 28px -12px oklch(0.26 0.012 75 / 0.22);
 
-  font: 15px/1.55 var(--font-sans);
-  color-scheme: light dark;
-  color: var(--color-foreground);
-  background: var(--color-background);
+  --ease-out-soft: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* Back-compat aliases for the pre-restyle variable names still referenced inline. */
-:root {
-  --text: var(--color-muted-foreground);
-  --text-h: var(--color-foreground);
-  --bg: var(--color-background);
-  --surface: var(--color-card);
-  --border: var(--color-border);
-  --code-bg: var(--color-muted);
-  --accent: var(--color-primary);
-  --accent-bg: var(--color-accent);
-  --accent-border: var(--color-primary);
-  --danger: var(--color-destructive);
-  --display: var(--font-display);
-  --sans: var(--font-sans);
-}
-
-@media (prefers-color-scheme: dark) {
+@layer base {
   :root {
-    --color-background: oklch(0.2 0.012 75);
-    --color-foreground: oklch(0.94 0.008 95);
-    --color-card: oklch(0.24 0.012 75);
-    --color-primary: oklch(0.68 0.07 168);
-    --color-primary-foreground: oklch(0.16 0.01 150);
-    --color-primary-hover: oklch(0.74 0.07 168);
-    --color-secondary: oklch(0.28 0.012 80);
-    --color-secondary-foreground: oklch(0.9 0.008 95);
-    --color-muted: oklch(0.28 0.012 80);
-    --color-muted-foreground: oklch(0.68 0.012 90);
-    --color-accent: oklch(0.3 0.03 165);
-    --color-accent-foreground: oklch(0.86 0.04 168);
-    --color-border: oklch(0.34 0.012 90);
-    --color-input: oklch(0.34 0.012 90);
-    --color-destructive: oklch(0.66 0.16 28);
-    --color-destructive-foreground: oklch(0.97 0.01 30);
-    --color-sidebar: oklch(0.18 0.012 80);
-    --color-sidebar-foreground: oklch(0.86 0.008 95);
-    --color-sidebar-border: oklch(0.3 0.012 90);
-    --color-sidebar-accent: oklch(0.28 0.03 165);
-    --color-sidebar-accent-foreground: oklch(0.82 0.04 168);
+    color-scheme: light;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    margin: 0;
+    background: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    font-size: 15px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-display);
+    letter-spacing: -0.01em;
+    font-weight: 600;
+    margin: 0;
+  }
+
+  p {
+    margin: 0;
+  }
+
+  code {
+    font-family: ui-monospace, Consolas, monospace;
+    font-size: 0.85em;
+    background: var(--color-muted);
+    padding: 0.1em 0.4em;
+    border-radius: var(--radius-sm);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-ring);
+    outline-offset: 2px;
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+    color: inherit;
+  }
+
+  .tabular {
+    font-variant-numeric: tabular-nums;
   }
 }
 
-* {
-  box-sizing: border-box;
+@layer utilities {
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-border) transparent;
+  }
+
+  [dir='rtl'] .flip-rtl {
+    transform: scaleX(-1);
+  }
+
+  .animate-in {
+    animation: fade-up 240ms var(--ease-out-soft) both;
+  }
 }
-body {
-  margin: 0;
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
-h1,
-h2,
-h3 {
-  font-family: var(--font-display);
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  margin: 0;
-}
-h1 {
-  font-size: 1.25rem;
-}
-h2 {
-  font-size: 0.95rem;
-  color: var(--color-muted-foreground);
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-}
-h3 {
-  font-size: 0.95rem;
-}
-code {
-  font-family: ui-monospace, Consolas, monospace;
-  font-size: 0.85em;
-  background: var(--color-muted);
-  padding: 0.1em 0.4em;
-  border-radius: var(--radius-sm);
-}
-p {
-  margin: 0;
-}
+
+/* ---------------------------------------------------------------------- */
+/* Legacy component classes — still used by features not yet migrated onto */
+/* @kga/ui (staff, settings, audit, media library, login). Do not add new   */
+/* uses of these; migrated screens (shell, content, asset picker) use       */
+/* @kga/ui + Tailwind utilities instead.                                    */
+/* ---------------------------------------------------------------------- */
 
 .pad {
   padding: 2rem;
@@ -215,105 +262,7 @@ p {
   color: var(--color-foreground);
 }
 
-/* ---------------------------------------------------------------------- */
-/* Shell: a sidebar console, not a centered marketing-style page.          */
-/* ---------------------------------------------------------------------- */
-.shell {
-  display: flex;
-  min-height: 100svh;
-}
-
-.sidebar {
-  inline-size: 232px;
-  flex: none;
-  display: flex;
-  flex-direction: column;
-  background: var(--color-sidebar);
-  border-inline-end: 1px solid var(--color-sidebar-border);
-  color: var(--color-sidebar-foreground);
-}
-.sidebar-brand {
-  padding: 1.1rem 1.1rem 0.9rem;
-  font-family: var(--font-display);
-  font-weight: 600;
-  font-size: 1rem;
-  color: var(--color-foreground);
-  border-block-end: 1px solid var(--color-sidebar-border);
-}
-.sidebar-nav {
-  display: grid;
-  gap: 0.15rem;
-  padding: 0.75rem;
-  overflow-y: auto;
-}
-.nav-item {
-  font: inherit;
-  font-size: 0.9rem;
-  font-weight: 600;
-  text-align: start;
-  padding: 0.55rem 0.7rem;
-  border-radius: var(--radius-md);
-  border: none;
-  background: transparent;
-  color: var(--color-sidebar-foreground);
-  cursor: pointer;
-}
-.nav-item:hover {
-  background: var(--color-secondary);
-}
-.nav-item-active {
-  background: var(--color-sidebar-accent);
-  color: var(--color-sidebar-accent-foreground);
-}
-.sidebar-footer {
-  margin-block-start: auto;
-  padding: 0.9rem;
-  border-block-start: 1px solid var(--color-sidebar-border);
-  display: grid;
-  gap: 0.6rem;
-}
-.sidebar-user {
-  display: grid;
-  gap: 0.1rem;
-}
-.sidebar-user-name {
-  font-weight: 600;
-  font-size: 0.88rem;
-  color: var(--color-foreground);
-}
-.sidebar-user-role {
-  font-size: 0.76rem;
-  color: var(--color-muted-foreground);
-}
-
-.shell-body {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-}
-.topbar {
-  padding: 0.9rem 1.5rem;
-  border-block-end: 1px solid var(--color-border);
-  background: var(--color-background);
-}
-.shell-main {
-  padding: 1.5rem;
-  flex: 1;
-  min-width: 0;
-}
-
-/* legacy alias kept for a component still rendering .shell-head directly */
-.shell-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 1rem;
-  padding: 0.9rem 1.5rem;
-  border-block-end: 1px solid var(--color-border);
-}
-
-/* tabs — now used only for in-page filters (age band, asset kind), not top-level nav */
+/* tabs — in-page filters (age band, asset kind) on unmigrated screens */
 .tabs {
   display: flex;
   gap: 0.25rem;
@@ -336,32 +285,6 @@ p {
   border-block-end-color: var(--color-primary);
 }
 
-/* browser two columns */
-.browser-cols {
-  display: grid;
-  grid-template-columns: 1fr 1.4fr;
-  gap: 1.25rem;
-}
-@media (max-width: 780px) {
-  .browser-cols {
-    grid-template-columns: 1fr;
-  }
-}
-.col {
-  background: var(--color-card);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-card);
-  padding: 1rem;
-}
-.col-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-block-end: 0.6rem;
-}
-
-/* dense rows — a data list, not a stack of buttons */
 .list {
   list-style: none;
   margin: 0;
@@ -427,22 +350,26 @@ p {
   color: var(--color-secondary-foreground);
 }
 
-/* editor + schema form */
-.editor {
+.settings-list {
   display: grid;
-  gap: 1.25rem;
+  gap: 1rem;
+  max-inline-size: 640px;
 }
-.editor-head {
+
+.col {
+  background: var(--color-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  padding: 1rem;
+}
+.col-head {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  margin-block-end: 0.6rem;
 }
-.editor-config-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-block-end: 0.75rem;
-}
+
 .sf {
   display: grid;
   gap: 0.85rem;
@@ -488,8 +415,7 @@ p {
   font-family: ui-monospace, Consolas, monospace;
   font-size: 0.82rem;
 }
-.sf-object,
-.sf-array {
+.sf-object {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   padding: 0.85rem;
@@ -497,52 +423,11 @@ p {
   display: grid;
   gap: 0.7rem;
 }
-.sf-object legend,
-.sf-array legend {
+.sf-object legend {
   font-weight: 700;
   font-size: 0.82rem;
   padding-inline: 0.35rem;
   color: var(--color-muted-foreground);
-}
-.sf-array-item {
-  display: grid;
-  gap: 0.4rem;
-  padding: 0.6rem;
-  border: 1px dashed var(--color-border);
-  border-radius: var(--radius-sm);
-}
-.sf-remove {
-  justify-self: start;
-  min-height: 30px;
-  padding: 0.2rem 0.75rem;
-  font-size: 0.82rem;
-}
-.issues {
-  margin: 0;
-  padding: 0.7rem 1rem 0.7rem 1.5rem;
-  border: 1px solid var(--color-destructive);
-  border-radius: var(--radius-md);
-  background: color-mix(in oklch, var(--color-destructive) 8%, transparent);
-  font-size: 0.83rem;
-  display: grid;
-  gap: 0.3rem;
-}
-.assets ul {
-  list-style: none;
-  margin: 0.4rem 0 0;
-  padding: 0;
-  display: grid;
-  gap: 0.3rem;
-  font-size: 0.83rem;
-}
-.editor-actions {
-  align-items: center;
-}
-
-.settings-list {
-  display: grid;
-  gap: 1rem;
-  max-inline-size: 640px;
 }
 
 .audit-table {
@@ -618,59 +503,6 @@ p {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-/* asset picker (inline control + browse modal) */
-.asset-picker {
-  display: grid;
-  gap: 0.4rem;
-}
-.asset-picker-preview img {
-  max-inline-size: 120px;
-  max-block-size: 90px;
-  object-fit: contain;
-  background: var(--color-secondary);
-  border-radius: var(--radius-sm);
-}
-.asset-picker-preview audio {
-  inline-size: 220px;
-}
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: oklch(0.1 0 0 / 0.45);
-  display: grid;
-  place-items: center;
-  padding: 1.5rem;
-  z-index: 50;
-}
-.modal-card {
-  background: var(--color-card);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-card);
-  padding: 1.25rem;
-  inline-size: min(720px, 100%);
-  max-block-size: 85vh;
-  overflow-y: auto;
-  display: grid;
-  gap: 0.9rem;
-}
-.modal-head {
-  justify-content: space-between;
-}
-.modal-grid {
-  max-block-size: 50vh;
-  overflow-y: auto;
-}
-.asset-pick {
-  border: 1px solid var(--color-border);
-  cursor: pointer;
-  text-align: start;
-}
-.asset-pick:hover {
-  border-color: var(--color-primary);
-  background: var(--color-accent);
 }
 
 /* up/down reorder arrows on a list row */
