@@ -33,13 +33,21 @@ import {
   RATING_LABELS,
   RATING_TONE,
 } from '../../shared/format';
+import { useUrlState } from '../../shared/use-url-state';
 import { ProgressionChart } from './LazyProgressionChart';
 
 type ReportView = 'progression' | 'vsGroup' | 'patterns';
 
 export function ReportsScreen() {
-  const [view, setView] = useState<ReportView>('progression');
-  const [childId, setChildId] = useState<string>('');
+  // View and chosen child live in the URL so returning from a child's profile
+  // brings back the same report.
+  const [state, patchState] = useUrlState({ view: 'progression', child: '' });
+  const view = (['progression', 'vsGroup', 'patterns'].includes(state.view)
+    ? state.view
+    : 'progression') as ReportView;
+  const childId = state.child;
+  const setView = (value: ReportView) => patchState({ view: value });
+  const setChildId = (value: string) => patchState({ child: value });
   const childrenQuery = useChildren({ pageSize: 100 });
 
   useEffect(() => {
@@ -223,7 +231,8 @@ function VsGroupReport({ childId }: { childId: string }) {
 }
 
 function PatternsReport() {
-  const [subdomainId, setSubdomainId] = useState<string>('');
+  const [{ sub: subdomainId }, patchSub] = useUrlState({ sub: '' });
+  const setSubdomainId = (value: string) => patchSub({ sub: value });
   const listQuery = useReportSubdomains();
   const { data, isPending, isError, error, refetch } = usePatterns(subdomainId || undefined);
 

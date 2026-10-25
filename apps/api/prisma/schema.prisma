@@ -59,6 +59,8 @@ enum GameType {
   // Added M12 (§9) — spec-mismatch fixes needed two new mechanics.
   SYLLABLE_COUNT
   PATTERN_SEQUENCE
+  // Single-piece inset puzzle for age 3–4.
+  INSET_PUZZLE
 }
 
 model Network {

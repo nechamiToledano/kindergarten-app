@@ -12,21 +12,44 @@ import type { DraggingItem } from './useDragDrop';
  * back conditionally for those.
  */
 
-export function OptionGrid({ children }: { children: ReactNode }) {
+export function OptionGrid({ children, gap = 'clamp(1.25rem, 4vw, 3rem)' }: { children: ReactNode; gap?: string }) {
   return (
     <div
       style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fit, minmax(clamp(110px, 22vw, 160px), 1fr))',
-        gap: 'clamp(0.75rem, 2.5vw, 1.5rem)',
+        gap,
         justifyItems: 'center',
         alignContent: 'center',
         inlineSize: 'min(900px, 90vw)',
-        maxBlockSize: '100%',
-        overflow: 'hidden',
+        flexShrink: 0,
       }}
     >
       {children}
+    </div>
+  );
+}
+
+/** The one focal "look at this" element of a game (sample image, target…),
+ * deliberately larger than the answer cards below it so the child's eye lands
+ * on it first. Spacing below separates "the question" from "your choices". */
+export function SampleImage({ src, alt }: { src: string; alt: string }) {
+  return (
+    <div style={{ display: 'grid', justifyItems: 'center', flexShrink: 0, marginBlockEnd: 'clamp(1rem, 4vh, 2.5rem)' }}>
+      <img
+        src={src}
+        alt={alt}
+        style={{
+          inlineSize: 'clamp(140px, 30vh, 260px)',
+          blockSize: 'clamp(140px, 30vh, 260px)',
+          objectFit: 'contain',
+          padding: 12,
+          background: '#fff',
+          borderRadius: 24,
+          border: '4px solid var(--accent-2, #2f8f5b)',
+          boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+        }}
+      />
     </div>
   );
 }
@@ -68,7 +91,7 @@ export function ImageCard({
         ...style,
       }}
     >
-      <span className="game-image-card-frame" style={{ inlineSize: 'clamp(90px, 20vw, 200px)', blockSize: 'clamp(90px, 20vw, 200px)' }}>
+      <span className="game-image-card-frame" style={{ inlineSize: 'clamp(90px, min(20vw, 22vh), 200px)', blockSize: 'clamp(90px, min(20vw, 22vh), 200px)' }}>
         <img
           src={src}
           alt={label ?? 'איור למשחק'}

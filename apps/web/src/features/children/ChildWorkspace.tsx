@@ -25,6 +25,8 @@ import {
   buttonClass,
   cn,
 } from '@kga/ui';
+import { BackLink } from '../../shared/BackLink';
+import { useUrlState } from '../../shared/use-url-state';
 import { useChildOverview, useProgression, useToggleWatch } from '../../shared/api/queries';
 import {
   AGE_GROUP_LABELS,
@@ -56,7 +58,9 @@ type WorkspaceTab = 'overview' | 'progress' | 'sessions';
  */
 export function ChildWorkspace() {
   const { childId } = useParams<{ childId: string }>();
-  const [tab, setTab] = useState<WorkspaceTab>('overview');
+  const [{ tab: tabParam }, patchView] = useUrlState({ tab: 'overview' });
+  const tab = (['overview', 'progress', 'sessions'].includes(tabParam) ? tabParam : 'overview') as WorkspaceTab;
+  const setTab = (value: WorkspaceTab) => patchView({ tab: value });
   const [editing, setEditing] = useState(false);
   const { data, isPending, isError, error, refetch } = useChildOverview(childId);
   const toggleWatch = useToggleWatch();
@@ -77,6 +81,9 @@ export function ChildWorkspace() {
   return (
     <div className="flex flex-col gap-5">
       <nav aria-label="מיקום" className="text-sm text-muted-foreground">
+        <BackLink fallback="/children" className="me-3 border border-border">
+          חזרה
+        </BackLink>
         <Link to="/children" className="hover:text-foreground">
           ילדי הגן
         </Link>

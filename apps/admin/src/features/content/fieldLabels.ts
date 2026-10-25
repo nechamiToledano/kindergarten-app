@@ -21,6 +21,7 @@ export const GAME_TYPE_LABELS: Record<GameTypeId, string> = {
   PATTERN_COPY: 'איתור השונה',
   SYLLABLE_COUNT: 'ספירת הברות',
   PATTERN_SEQUENCE: 'המשך רצף',
+  INSET_PUZZLE: 'פאזל חלק אחד (שקע וצללית)',
   MANUAL_OBSERVATION: 'תצפית ידנית',
 };
 
@@ -82,6 +83,10 @@ export const FIELD_LABELS: Partial<Record<GameTypeId, Record<string, string>>> =
   },
   PATTERN_COPY: {
     oddOneOutId: 'מזהה הפריט השונה',
+  },
+  INSET_PUZZLE: {
+    imageUrl: 'תמונת החלק (צבעונית)',
+    silhouetteUrl: 'תמונת הצללית (השקע)',
   },
   SYLLABLE_COUNT: {
     wordImageUrl: 'תמונת המילה',

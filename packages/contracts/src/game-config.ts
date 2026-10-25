@@ -16,6 +16,7 @@ export const GameTypeIdSchema = z.enum([
   'PATTERN_COPY', // Spec §4.8 — added M5
   'SYLLABLE_COUNT', // Spec §9 (חלוקה להברות) — added M12
   'PATTERN_SEQUENCE', // Spec §9 (מתכונת/רצף) — added M12
+  'INSET_PUZZLE', // single-piece wooden inset puzzle (silhouette socket) — age 3–4
   'MANUAL_OBSERVATION',
 ]);
 export type GameTypeId = z.infer<typeof GameTypeIdSchema>;
@@ -177,6 +178,18 @@ export const PuzzleConfigSchema = PuzzleObjectSchema.refine(
 );
 
 /**
+ * Single-piece wooden inset puzzle: one loose piece (`imageUrl`, the full-colour
+ * object) and one recessed socket showing its outline (`silhouetteUrl`). The
+ * child drags the piece into the socket. Answer: `true` once it is seated.
+ */
+export const InsetPuzzleConfigSchema = z.object({
+  gameType: z.literal('INSET_PUZZLE'),
+  promptAudioUrl: z.string().min(1),
+  imageUrl: z.string().min(1),
+  silhouetteUrl: z.string().min(1),
+});
+
+/**
  * Spec §4.8 — odd-one-out: N images share a visual property, one breaks it; tap
  * the different one. Structurally a Multi Image Choice with a comparison intent.
  */
@@ -242,6 +255,7 @@ export const GameConfigSchema = z.discriminatedUnion('gameType', [
   PatternCopyConfigSchema,
   SyllableCountObjectSchema,
   PatternSequenceObjectSchema,
+  InsetPuzzleConfigSchema,
   ManualObservationConfigSchema,
 ]);
 export type GameConfig = z.infer<typeof GameConfigSchema>;

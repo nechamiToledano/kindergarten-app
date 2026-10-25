@@ -166,6 +166,7 @@ export function ContentBrowser() {
 
   const [openDomain, setOpenDomain] = useState<Domain | null>(null);
   const [subdomains, setSubdomains] = useState<SubdomainSummary[] | null>(null);
+  const [hiddenCount, setHiddenCount] = useState(0);
   // The editor is addressed by id, not by the row object: a list row is a
   // summary without its gameConfig, and handing that to the editor as if it were
   // a full subdomain is how an edit silently blanks a config.
@@ -193,9 +194,18 @@ export function ContentBrowser() {
     (domain: Domain) => {
       setOpenDomain(domain);
       setSubdomains(null);
+      setHiddenCount(0);
       contentApi
         .listSubdomains({ domainId: domain.id, ageGroup })
-        .then(setSubdomains)
+        .then(async (rows) => {
+          setSubdomains(rows);
+          // Deleting a domain is blocked by subdomains of *any* age group, so when
+          // this age group looks empty, say how many others are hiding elsewhere.
+          if (rows.length === 0) {
+            const all = await contentApi.listSubdomains({ domainId: domain.id });
+            setHiddenCount(all.length);
+          }
+        })
         .catch((e) => setError(e instanceof Error ? e.message : 'שגיאה'));
     },
     [ageGroup],
@@ -413,7 +423,11 @@ export function ContentBrowser() {
                 </li>
               ))}
               {openDomain && subdomains?.length === 0 && (
-                <li className="px-3 py-2 text-sm text-muted-foreground">אין תת-תחומים לקבוצת הגיל הזו.</li>
+                <li className="px-3 py-2 text-sm text-muted-foreground">
+                  אין תת-תחומים לקבוצת הגיל הזו.
+                  {hiddenCount > 0 &&
+                    ` יש ${hiddenCount} תת-תחומים בקבוצות גיל אחרות – החלף קבוצת גיל כדי לראות ולמחוק אותם.`}
+                </li>
               )}
             </ul>
           </CardBody>

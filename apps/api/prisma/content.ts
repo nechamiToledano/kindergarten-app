@@ -393,7 +393,6 @@ const AGE_3_4: AgeGroupContent = {
             promptAudioUrl: audio('לוטו-מצא-זהה-כדור'),
             sampleImageUrl: '/assets/object-ball.png',
             options: [
-              { id: 'apple', imageUrl: '/assets/object-apple.png', label: 'תפוח' },
               { id: 'doll', imageUrl: '/assets/object-doll.png', label: 'בובה' },
               { id: 'train', imageUrl: '/assets/object-train.png', label: 'רכבת' },
               { id: 'ball-match', imageUrl: '/assets/object-ball.png', label: 'כדור' },
@@ -419,6 +418,56 @@ const AGE_3_4: AgeGroupContent = {
           },
         },
         {
+          id: uuid('a3310000', 6),
+          name: 'פאזל חלק אחד (שקע)',
+          teacherInstruction:
+            'פעילות פיזית עם פאזל עץ של חלק אחד (חיה בשקע בצורת צללית). הגישי את החלק ובַקְּשִׁי מהילד/ה להכניס אותו לשקע. דַּרְגִי: קיים (עצמאי) / קיים עם תיווך (בעזרת רמז/הדגמה) / קיים חלקית / לא קיים. אפשר לבחור בגרסה הדיגיטלית שמיד אחריה במקום.',
+          childInstruction: 'הכניסו את החלק למקום שלו.',
+          config: {
+            gameType: 'MANUAL_OBSERVATION',
+            observationPrompt: 'הילד/ה מכניס/ה את חלק הפאזל היחיד לשקע המתאים, עצמאית או בעזרת תיווך.',
+          },
+        },
+        {
+          id: uuid('a3310000', 7),
+          name: 'פאזל חלק אחד (שקע) — גרסה דיגיטלית',
+          teacherInstruction:
+            'חלופה דיגיטלית לפאזל העץ שלמעלה — אפשר לבחור באחד מהם. בַּקְּשִׁי מהילד/ה לגרור את החיה אל הצללית שלה על המסך.',
+          childInstruction: 'גררו את החיה אל הצל שלה.',
+          config: {
+            gameType: 'INSET_PUZZLE',
+            promptAudioUrl: audio('פאזל-חלק-אחד-כלב'),
+            imageUrl: '/assets/dog-color.png',
+            silhouetteUrl: '/assets/dog-silhouette.png',
+          },
+        },
+        {
+          id: uuid('a3310000', 8),
+          name: 'פאזל 2 חלקים',
+          teacherInstruction:
+            'פעילות פיזית עם פאזל עץ אמיתי של 2 חלקים על השולחן. דַּרְגִי: קיים (עצמאי) / קיים עם תיווך (בעזרת רמז/הדגמה) / קיים חלקית / לא קיים. אפשר לבחור בגרסה הדיגיטלית שמיד אחריה במקום.',
+          childInstruction: 'הרכיבו את הפאזל על השולחן.',
+          config: {
+            gameType: 'MANUAL_OBSERVATION',
+            observationPrompt: 'הילד/ה מרכיב/ה פאזל עץ של 2 חלקים, עצמאית או בעזרת תיווך.',
+          },
+        },
+        {
+          id: uuid('a3310000', 9),
+          name: 'פאזל 2 חלקים — גרסה דיגיטלית',
+          teacherInstruction:
+            'חלופה דיגיטלית לפאזל העץ שלמעלה — אפשר לבחור באחד מהם. בַּקְּשִׁי מהילד/ה לחבר את שני החלקים כך שייווצר ציור שלם.',
+          childInstruction: 'גררו את שני החלקים והצמידו אותם לתמונה שלמה.',
+          config: {
+            gameType: 'PUZZLE',
+            promptAudioUrl: audio('פאזל-2-פרח-דיגיטלי'),
+            imageUrl: '/assets/puzzle-flower.png',
+            rows: 1,
+            cols: 2,
+            pieceCount: 2,
+          },
+        },
+        {
           id: uuid('a3310000', 4),
           name: 'פאזל 4 חלקים',
           teacherInstruction:
@@ -433,8 +482,8 @@ const AGE_3_4: AgeGroupContent = {
           id: uuid('a3310000', 5),
           name: 'פאזל 4 חלקים — גרסה דיגיטלית',
           teacherInstruction:
-            'גרסה דיגיטלית להדגמה/תרגול (הפעילות הרשמית לאבחון היא הפאזל הפיזי למעלה). בַּקְּשִׁי מהילד/ה להרכיב את הפאזל על המסך.',
-          childInstruction: 'הקישו על חלק למטה, ואז הקישו על המשבצת שלו למעלה.',
+            'חלופה דיגיטלית לפאזל העץ שלמעלה — אפשר לבחור באחד מהם. בַּקְּשִׁי מהילד/ה להרכיב את הפאזל על המסך.',
+          childInstruction: 'גררו כל חלק למקומו והצמידו אותם לתמונה שלמה.',
           config: {
             gameType: 'PUZZLE',
             promptAudioUrl: audio('פאזל-4-חיה-דיגיטלי'),
@@ -640,6 +689,21 @@ const AGE_4_5: AgeGroupContent = {
           config: {
             gameType: 'MANUAL_OBSERVATION',
             observationPrompt: 'הילד/ה מרכיב/ה פאזל עץ של 6 חלקים, עצמאית או בעזרת תיווך.',
+          },
+        },
+        {
+          id: uuid('a4310000', 5),
+          name: 'פאזל 6 חלקים — גרסה דיגיטלית',
+          teacherInstruction:
+            'חלופה דיגיטלית לפאזל העץ שלמעלה — אפשר לבחור באחד מהם. בַּקְּשִׁי מהילד/ה להרכיב את הפאזל על המסך.',
+          childInstruction: 'גררו כל חלק למקומו והצמידו אותם לתמונה שלמה.',
+          config: {
+            gameType: 'PUZZLE',
+            promptAudioUrl: audio('פאזל-6-פרח-דיגיטלי'),
+            imageUrl: '/assets/puzzle-flower.png',
+            rows: 2,
+            cols: 3,
+            pieceCount: 6,
           },
         },
         {
@@ -927,6 +991,21 @@ const AGE_5_6: AgeGroupContent = {
           },
         },
         {
+          id: uuid('a5210000', 5),
+          name: 'פאזל 8 חלקים — גרסה דיגיטלית',
+          teacherInstruction:
+            'חלופה דיגיטלית לפאזל העץ שלמעלה — אפשר לבחור באחד מהם. בַּקְּשִׁי מהילד/ה להרכיב את הפאזל על המסך.',
+          childInstruction: 'גררו כל חלק למקומו והצמידו אותם לתמונה שלמה.',
+          config: {
+            gameType: 'PUZZLE',
+            promptAudioUrl: audio('פאזל-8-בית-דיגיטלי'),
+            imageUrl: '/assets/puzzle-house.png',
+            rows: 2,
+            cols: 4,
+            pieceCount: 8,
+          },
+        },
+        {
           id: uuid('a5210000', 4),
           name: 'פאזל 10 חלקים',
           teacherInstruction:
@@ -935,6 +1014,21 @@ const AGE_5_6: AgeGroupContent = {
           config: {
             gameType: 'MANUAL_OBSERVATION',
             observationPrompt: 'הילד/ה מרכיב/ה פאזל עץ של 10 חלקים, עצמאית או בעזרת תיווך.',
+          },
+        },
+        {
+          id: uuid('a5210000', 6),
+          name: 'פאזל 10 חלקים — גרסה דיגיטלית',
+          teacherInstruction:
+            'חלופה דיגיטלית לפאזל העץ שלמעלה — אפשר לבחור באחד מהם. בַּקְּשִׁי מהילד/ה להרכיב את הפאזל על המסך.',
+          childInstruction: 'גררו כל חלק למקומו והצמידו אותם לתמונה שלמה.',
+          config: {
+            gameType: 'PUZZLE',
+            promptAudioUrl: audio('פאזל-10-פרה-דיגיטלי'),
+            imageUrl: '/assets/puzzle-cow.png',
+            rows: 2,
+            cols: 5,
+            pieceCount: 10,
           },
         },
       ],

@@ -912,7 +912,7 @@ export function Toast({
       role="status"
       className={cn(
         'animate-in fixed bottom-5 z-50 rounded-xl px-4 py-3 text-sm font-medium shadow-float',
-        tone === 'present' && 'bg-present text-white',
+        tone === 'present' && 'bg-present text-background',
         tone === 'absent' && 'bg-destructive text-destructive-foreground',
         tone === 'neutral' && 'bg-foreground text-background',
       )}

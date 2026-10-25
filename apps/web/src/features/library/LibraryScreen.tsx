@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import type { AgeGroup, SubdomainLevel } from '@kga/contracts';
 import {
@@ -20,6 +19,7 @@ import {
 } from '@kga/ui';
 import { useDomains, useSubdomains } from '../../shared/api/queries';
 import { useDebounced } from '../../shared/use-debounced';
+import { useUrlState } from '../../shared/use-url-state';
 import { AGE_GROUP_SHORT, GAME_TYPE_LABELS, LEVEL_LABELS } from '../../shared/format';
 
 type AgeFilter = 'ALL' | AgeGroup;
@@ -35,10 +35,17 @@ type LevelFilter = 'ALL' | SubdomainLevel;
  */
 export function LibraryScreen() {
   const navigate = useNavigate();
-  const [search, setSearch] = useState('');
-  const [ageGroup, setAgeGroup] = useState<AgeFilter>('ALL');
-  const [level, setLevel] = useState<LevelFilter>('ALL');
-  const [domainId, setDomainId] = useState<'ALL' | string>('ALL');
+  // Filters live in the URL so coming back from a preview restores them.
+  const [filters, patchFilters] = useUrlState({ q: '', age: 'ALL', level: 'ALL', domain: 'ALL' });
+  const search = filters.q;
+  const ageGroup = filters.age as AgeFilter;
+  // Levels are numbers; the URL only holds strings.
+  const level: LevelFilter = filters.level === 'ALL' ? 'ALL' : (Number(filters.level) as SubdomainLevel);
+  const domainId = filters.domain;
+  const setSearch = (value: string) => patchFilters({ q: value });
+  const setAgeGroup = (value: AgeFilter) => patchFilters({ age: value });
+  const setLevel = (value: LevelFilter) => patchFilters({ level: String(value) });
+  const setDomainId = (value: string) => patchFilters({ domain: value });
 
   const debouncedSearch = useDebounced(search, 250);
   const domainsQuery = useDomains();

@@ -29,6 +29,8 @@ interface AudioUnlockValue {
    * asset pipeline. Resolves immediately if the browser has no TTS voice.
    */
   speak: (text: string) => Promise<void>;
+  /** Cuts off whatever instruction audio is playing right now (clip or speech). */
+  stop: () => void;
 }
 
 const AudioUnlockContext = createContext<AudioUnlockValue | null>(null);
@@ -36,6 +38,7 @@ const AudioUnlockContext = createContext<AudioUnlockValue | null>(null);
 export function AudioUnlockProvider({ children }: { children: ReactNode }) {
   const ctxRef = useRef<AudioContext | null>(null);
   const [unlocked, setUnlocked] = useState(false);
+  const currentRef = useRef<{ el: HTMLAudioElement; resolve: () => void } | null>(null);
 
   const getContext = useCallback((): AudioContext => {
     if (!ctxRef.current) {
@@ -100,13 +103,28 @@ export function AudioUnlockProvider({ children }: { children: ReactNode }) {
       }
       await new Promise<void>((resolve, reject) => {
         const el = new Audio(url);
-        el.addEventListener('ended', () => resolve());
+        const finish = () => {
+          if (currentRef.current?.el === el) currentRef.current = null;
+          resolve();
+        };
+        currentRef.current = { el, resolve: finish };
+        el.addEventListener('ended', finish);
         el.addEventListener('error', () => reject(new Error(`audio failed: ${url}`)));
         void el.play().catch(reject);
       });
     },
     [unlocked, unlock, playTone],
   );
+
+  const stop = useCallback(() => {
+    const current = currentRef.current;
+    currentRef.current = null;
+    if (current) {
+      current.el.pause();
+      current.resolve();
+    }
+    window.speechSynthesis?.cancel();
+  }, []);
 
   const speak = useCallback(
     (text: string) =>
@@ -130,8 +148,8 @@ export function AudioUnlockProvider({ children }: { children: ReactNode }) {
   );
 
   const value = useMemo<AudioUnlockValue>(
-    () => ({ unlocked, unlock, play, speak }),
-    [unlocked, unlock, play, speak],
+    () => ({ unlocked, unlock, play, speak, stop }),
+    [unlocked, unlock, play, speak, stop],
   );
 
   return <AudioUnlockContext.Provider value={value}>{children}</AudioUnlockContext.Provider>;

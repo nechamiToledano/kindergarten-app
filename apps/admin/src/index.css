@@ -1,4 +1,5 @@
 @import 'tailwindcss';
+@import '../../../packages/ui/src/theme.css';
 
 /* `packages/ui` lives outside this app's root, so Tailwind has to be told to
    scan it — otherwise every class the shared components use is tree-shaken away

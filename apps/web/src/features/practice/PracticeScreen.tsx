@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router';
 import type { SubdomainForPlay } from '@kga/contracts';
 import {
   Avatar,
@@ -18,6 +17,7 @@ import {
 } from '@kga/ui';
 import { createSession, getSubdomainForPlay } from '../../shared/api/endpoints';
 import { useChildren, useDomains, useSubdomains } from '../../shared/api/queries';
+import { useGoBack } from '../../shared/BackLink';
 import { useOutbox } from '../../shared/outbox/OutboxProvider';
 import { AGE_GROUP_LABELS, GAME_TYPE_LABELS, RATING_LABELS } from '../../shared/format';
 import { GamePlayer, type SubdomainRunResult } from '../sessions/GamePlayer';
@@ -39,7 +39,7 @@ type Stage =
  * catalogue is empty, because that is the fact the teacher needs.
  */
 export function PracticeScreen() {
-  const navigate = useNavigate();
+  const goBack = useGoBack('/');
   const { queue } = useOutbox();
   const [stage, setStage] = useState<Stage>({ kind: 'setup' });
 
@@ -119,6 +119,7 @@ export function PracticeScreen() {
           gameConfig: stage.subdomain.gameConfig,
           demoConfig: stage.subdomain.demoConfig,
         }}
+        onExit={() => setStage({ kind: 'setup' })}
         onComplete={handleComplete}
       />
     );
@@ -137,7 +138,7 @@ export function PracticeScreen() {
           </p>
           <div className="mt-2 flex flex-wrap justify-center gap-2">
             <Button onClick={() => setStage({ kind: 'setup' })}>משחק נוסף</Button>
-            <Button variant="ghost" onClick={() => navigate('/')}>
+            <Button variant="ghost" onClick={goBack}>
               חזרה למערכת
             </Button>
           </div>
@@ -153,7 +154,7 @@ export function PracticeScreen() {
           title="משחק חופשי"
           description="כל משחק מהקטלוג, ללא קשר לתהליך האבחון"
           actions={
-            <Button variant="ghost" size="sm" onClick={() => navigate('/')}>
+            <Button variant="ghost" size="sm" onClick={goBack}>
               יציאה
             </Button>
           }

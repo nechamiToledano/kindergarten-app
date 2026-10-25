@@ -1,0 +1,66 @@
+/*
+ * Dark theme — the default, modelled on Gmail's dark mode.
+ *
+ * The product is used by children with Down syndrome, many of whom have low
+ * vision, so contrast and crispness are the requirement rather than a taste.
+ * Dark is the default; light is opt-in via `data-theme="light"` on <html>
+ * (see theme.tsx).
+ *
+ * Like Gmail: soft charcoal rather than pure black, surfaces that step up in
+ * lightness as they rise (canvas -> card -> raised), light-grey text instead of
+ * pure white, and a pale accent with dark text on filled buttons. Status
+ * colours are lifted so they stay distinct, and their "soft" backgrounds become
+ * deep tints rather than pastels. The base tokens in each app's index.css are
+ * the light set; this file overrides them unless light was chosen.
+ */
+:root:not([data-theme='light']) {
+  color-scheme: dark;
+
+  --color-background: oklch(0.18 0.003 260); /* ~#131314 */
+  --color-foreground: oklch(0.92 0.003 260); /* ~#e3e3e3 */
+  --color-card: oklch(0.235 0.004 260); /* ~#1e1f20 */
+  --color-card-foreground: oklch(0.92 0.003 260);
+
+  --color-primary: oklch(0.82 0.085 166);
+  --color-primary-foreground: oklch(0.2 0.03 170);
+  --color-primary-hover: oklch(0.88 0.085 166);
+
+  --color-secondary: oklch(0.29 0.005 260); /* ~#282a2c */
+  --color-secondary-foreground: oklch(0.9 0.003 260);
+  --color-muted: oklch(0.29 0.005 260);
+  --color-muted-foreground: oklch(0.8 0.006 260); /* ~#c4c7c5 */
+  --color-accent: oklch(0.34 0.05 168);
+  --color-accent-foreground: oklch(0.92 0.06 168);
+
+  --color-border: oklch(0.4 0.006 260); /* ~#444746 */
+  --color-input: oklch(0.45 0.006 260);
+  --color-ring: oklch(0.82 0.1 166);
+  --color-destructive: oklch(0.76 0.12 25);
+  --color-destructive-foreground: oklch(0.2 0.04 25);
+
+  --color-present: oklch(0.8 0.13 158);
+  --color-present-soft: oklch(0.3 0.05 160);
+  --color-support: oklch(0.8 0.09 230);
+  --color-support-soft: oklch(0.3 0.05 240);
+  --color-partial: oklch(0.84 0.11 80);
+  --color-partial-soft: oklch(0.32 0.05 80);
+  --color-absent: oklch(0.77 0.13 28);
+  --color-absent-soft: oklch(0.31 0.05 30);
+  --color-info: oklch(0.8 0.09 235);
+  --color-info-soft: oklch(0.3 0.05 240);
+
+  --color-sidebar: oklch(0.18 0.003 260);
+  --color-sidebar-foreground: oklch(0.9 0.003 260);
+  --color-sidebar-border: oklch(0.18 0.003 260);
+  --color-sidebar-accent: oklch(0.34 0.05 168);
+  --color-sidebar-accent-foreground: oklch(0.92 0.06 168);
+
+  --color-chart-1: oklch(0.8 0.1 168);
+  --color-chart-2: oklch(0.8 0.09 220);
+  --color-chart-3: oklch(0.84 0.11 80);
+  --color-chart-4: oklch(0.77 0.12 30);
+  --color-chart-5: oklch(0.78 0.03 260);
+
+  --shadow-card: 0 1px 2px oklch(0 0 0 / 0.5), 0 1px 3px oklch(0 0 0 / 0.35);
+  --shadow-float: 0 12px 28px -12px oklch(0 0 0 / 0.75);
+}

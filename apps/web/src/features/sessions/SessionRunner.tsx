@@ -23,6 +23,7 @@ import {
 } from '../../shared/api/queries';
 import { useOutbox } from '../../shared/outbox/OutboxProvider';
 import { RATING_LABELS, RATING_TONE } from '../../shared/format';
+import { useGoBack } from '../../shared/BackLink';
 import { GamePlayer, type SubdomainRunResult } from './GamePlayer';
 
 /**
@@ -39,6 +40,7 @@ import { GamePlayer, type SubdomainRunResult } from './GamePlayer';
 export function SessionRunner() {
   const { sessionId } = useParams<{ sessionId: string }>();
   const navigate = useNavigate();
+  const goBackToRoster = useGoBack('/children');
   const { queue, pending, syncing, flush } = useOutbox();
 
   const [playing, setPlaying] = useState<string | null>(null);
@@ -118,7 +120,7 @@ export function SessionRunner() {
           }
           onRetry={() => void sessionQuery.refetch()}
         />
-        <Button className="mt-4" variant="outline" onClick={() => navigate('/children')}>
+        <Button className="mt-4" variant="outline" onClick={goBackToRoster}>
           חזרה לרשימת הילדים
         </Button>
       </div>
@@ -154,6 +156,7 @@ export function SessionRunner() {
             gameConfig: content.gameConfig,
             demoConfig: content.demoConfig,
           }}
+          onExit={() => setPlaying(null)}
           onComplete={handleComplete}
         />
       );

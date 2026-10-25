@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router';
+import { useParams } from 'react-router';
 import type { SubdomainForPlay } from '@kga/contracts';
 import { Button, Card, ErrorState, Spinner } from '@kga/ui';
+import { useGoBack } from '../../shared/BackLink';
 import { getSubdomainForPlay } from '../../shared/api/endpoints';
 import { GamePlayer, type SubdomainRunResult } from '../sessions/GamePlayer';
 
@@ -20,7 +21,7 @@ type Stage =
  */
 export function LibraryPreviewScreen() {
   const { subdomainId } = useParams<{ subdomainId: string }>();
-  const navigate = useNavigate();
+  const goBack = useGoBack('/library');
   const [stage, setStage] = useState<Stage>({ kind: 'loading' });
 
   useEffect(() => {
@@ -54,7 +55,7 @@ export function LibraryPreviewScreen() {
     return (
       <main className="mx-auto flex min-h-dvh max-w-lg flex-col items-center justify-center gap-4 p-6">
         <ErrorState message={stage.message} />
-        <Button variant="ghost" onClick={() => navigate('/library')}>
+        <Button variant="ghost" onClick={() => goBack()}>
           חזרה לספרייה
         </Button>
       </main>
@@ -73,6 +74,7 @@ export function LibraryPreviewScreen() {
           gameConfig: stage.subdomain.gameConfig,
           demoConfig: stage.subdomain.demoConfig,
         }}
+        onExit={goBack}
         onComplete={(result) => setStage({ kind: 'done', result, subdomain: stage.subdomain })}
       />
     );
@@ -89,7 +91,7 @@ export function LibraryPreviewScreen() {
           <Button onClick={() => setStage({ kind: 'playing', subdomain: stage.subdomain })}>
             לשחק שוב
           </Button>
-          <Button variant="ghost" onClick={() => navigate('/library')}>
+          <Button variant="ghost" onClick={() => goBack()}>
             חזרה לספרייה
           </Button>
         </div>

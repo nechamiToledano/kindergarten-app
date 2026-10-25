@@ -26,6 +26,15 @@
   --play-surface: #fffdf9;
   --play-correct: #3f9d78;
   --play-wrong: #d1705c;
+  --play-ink-soft: rgba(51, 64, 59, 0.72);
+  --play-panel: #fff;
+  --play-glass: rgba(255, 255, 255, 0.6);
+  --play-glass-strong: rgba(255, 255, 255, 0.85);
+  --play-line: rgba(51, 64, 59, 0.18);
+  --play-line-strong: rgba(51, 64, 59, 0.3);
+  --play-on-accent: #fff;
+  --play-correct-soft: #e3f4ec;
+  --play-wrong-soft: #fbe9e6;
   --play-radius: 28px;
   --play-shadow: 0 18px 40px -20px rgba(51, 64, 59, 0.45);
   --play-ease: cubic-bezier(0.16, 1, 0.3, 1);
@@ -35,13 +44,36 @@
      referenced via var(...) without ever being defined, so every "selected"
      border and every empty drop-slot silently rendered as nothing. */
   --accent-2: var(--play-cool);
-  --border: rgba(51, 64, 59, 0.25);
-  --code-bg: rgba(255, 255, 255, 0.6);
+  --border: var(--play-line-strong);
+  --code-bg: var(--play-glass);
   /* Same story: Comparison's "שווה" button and DragMatch's helper caption
      reference these but nothing ever defined them. */
   --accent-2-bg: var(--play-cool-soft);
   --text-h: var(--play-ink);
-  --muted-foreground: rgba(51, 64, 59, 0.6);
+  --muted-foreground: var(--play-ink-soft);
+}
+
+/* Dark is the default (Gmail-style charcoal, soft off-white ink). Same warm /
+   cool identity as the light surface, on a calm high-contrast ground. */
+:root:not([data-theme='light']) {
+  --play-warm: #f0a868;
+  --play-warm-soft: #2b2620;
+  --play-cool: #8ab4f8;
+  --play-cool-soft: #1f2a33;
+  --play-ink: #e3e3e3;
+  --play-ink-soft: #c4c7c5;
+  --play-surface: #1e1f20;
+  --play-panel: #282a2c;
+  --play-glass: rgba(40, 42, 44, 0.75);
+  --play-glass-strong: rgba(40, 42, 44, 0.94);
+  --play-line: rgba(227, 227, 227, 0.2);
+  --play-line-strong: rgba(227, 227, 227, 0.38);
+  --play-on-accent: #131314;
+  --play-correct: #6dd3a4;
+  --play-correct-soft: #1c3329;
+  --play-wrong: #f2998a;
+  --play-wrong-soft: #382320;
+  --play-shadow: 0 18px 40px -20px rgba(0, 0, 0, 0.8);
 }
 
 .game-screen {
@@ -113,11 +145,11 @@
   justify-content: space-between;
   padding: 0.5rem 0.9rem;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.55);
+  background: var(--play-glass);
   backdrop-filter: blur(6px);
   font-size: 0.85rem;
   font-weight: 600;
-  color: rgba(51, 64, 59, 0.6);
+  color: var(--play-ink-soft);
 }
 
 .game-brand,
@@ -151,7 +183,7 @@
   display: inline-block;
   padding: 0.35rem 0.9rem;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.75);
+  background: var(--play-glass-strong);
   font-size: 0.8rem;
   font-weight: 700;
   color: var(--play-cool);
@@ -289,7 +321,7 @@
   margin: 0;
   font-size: 0.95rem;
   font-weight: 600;
-  color: rgba(51, 64, 59, 0.65);
+  color: var(--play-ink-soft);
 }
 
 .teacher-note-field {
@@ -306,8 +338,8 @@
   font: inherit;
   font-size: 1rem;
   border-radius: 16px;
-  border: 2px solid rgba(51, 64, 59, 0.15);
-  background: #fff;
+  border: 2px solid var(--play-line);
+  background: var(--play-panel);
   resize: vertical;
   transition: border-color 150ms;
 }
@@ -328,14 +360,14 @@
    one place it's rendered inside a child-facing surface. ──────────────── */
 .rating-card {
   --color-present: var(--play-correct);
-  --color-present-soft: #e3f4ec;
+  --color-present-soft: var(--play-correct-soft);
   --color-partial: #c47a2e;
-  --color-partial-soft: #fdf0e0;
+  --color-partial-soft: var(--play-warm-soft);
   --color-absent: var(--play-wrong);
-  --color-absent-soft: #fbe9e6;
-  --color-border: rgba(51, 64, 59, 0.18);
-  --color-card: #fff;
-  --color-muted-foreground: rgba(51, 64, 59, 0.55);
+  --color-absent-soft: var(--play-wrong-soft);
+  --color-border: var(--play-line);
+  --color-card: var(--play-panel);
+  --color-muted-foreground: var(--play-ink-soft);
 }
 
 .game-play-card {
@@ -363,7 +395,7 @@
   margin: 0;
   font-size: 1.1rem;
   font-weight: 600;
-  color: rgba(51, 64, 59, 0.7);
+  color: var(--play-ink-soft);
 }
 
 .game-hero-card p,
@@ -372,35 +404,88 @@
   margin: 0;
   max-inline-size: 46ch;
   font-size: clamp(1rem, 2vw, 1.15rem);
-  color: rgba(51, 64, 59, 0.75);
+  color: var(--play-ink-soft);
 }
 
 .game-instruction-pill {
   padding: 0.65rem 1.4rem;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.85);
+  background: var(--play-glass-strong);
   font-size: clamp(1rem, 2.2vw, 1.3rem);
   font-weight: 600;
   box-shadow: 0 6px 18px -12px rgba(51, 64, 59, 0.5);
 }
 
-.game-play-header {
+/* The child's instruction sits in the top-right corner of the game screen
+   (the page is RTL, so inline-start is the right edge), just under the top bar,
+   with replay + mute buttons beside the text. */
+.game-screen > .game-instruction-corner {
+  position: absolute;
+  inset-block-start: clamp(3.9rem, 8vw, 5rem);
+  inset-inline-start: clamp(0.75rem, 2.5vw, 1.5rem);
+  max-inline-size: calc(100% - 2 * clamp(0.75rem, 2.5vw, 1.5rem));
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 0.6rem;
-  flex-wrap: wrap;
+  z-index: 2;
 }
 
-.game-replay {
-  inline-size: 48px;
-  block-size: 48px;
-  min-block-size: 48px;
+.game-instruction-corner ~ .game-play-card {
+  margin-block-start: clamp(4rem, 9vw, 5rem);
+}
+
+/* One speaker button: solid and large enough for a small hand. Waves pulse
+   while the instruction is speaking (tap = silence); a slash replaces them
+   when muted (tap = hear it again). */
+.speaker-btn {
+  flex-shrink: 0;
+  inline-size: 56px;
+  block-size: 56px;
   padding: 0;
+  border: 0;
   border-radius: 50%;
-  font-size: 1.2rem;
   display: grid;
   place-items: center;
+  background: var(--play-cool);
+  color: #fff;
+  cursor: pointer;
+  box-shadow: 0 8px 18px -8px rgba(51, 64, 59, 0.55), 0 0 0 4px rgba(255, 255, 255, 0.7);
+  transition: transform 150ms var(--play-ease), background 150ms;
+}
+
+.speaker-btn:active {
+  transform: scale(0.93);
+}
+
+.speaker-btn.is-playing {
+  background: var(--play-warm);
+}
+
+.speaker-btn.is-muted {
+  background: rgba(51, 64, 59, 0.55);
+}
+
+.speaker-icon {
+  inline-size: 30px;
+  block-size: 30px;
+}
+
+.speaker-btn.is-playing .speaker-wave {
+  animation: speaker-wave 900ms ease-in-out infinite;
+}
+
+.speaker-btn.is-playing .speaker-wave-2 {
+  animation-delay: 200ms;
+}
+
+@keyframes speaker-wave {
+  0%, 100% { opacity: 0.25; }
+  50% { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .speaker-btn.is-playing .speaker-wave { animation: none; }
 }
 
 /* ── Controls ───────────────────────────────────────────────────────────── */
@@ -411,7 +496,7 @@
   border: 0;
   border-radius: 999px;
   background: var(--play-warm);
-  color: #fff;
+  color: var(--play-on-accent);
   font: inherit;
   font-size: 1.15rem;
   font-weight: 700;
@@ -503,7 +588,7 @@
   font-size: clamp(4rem, 12vw, 7rem);
   font-weight: 700;
   line-height: 1;
-  color: #fff;
+  color: var(--play-on-accent);
   animation: mark-pop 420ms var(--play-ease) both;
 }
 
@@ -572,7 +657,7 @@
   position: relative;
   border: 4px solid transparent;
   border-radius: 24px;
-  background: #fff;
+  background: var(--play-panel);
   padding: 0.5rem;
   cursor: pointer;
   transition: transform 150ms var(--play-ease), border-color 150ms, box-shadow 150ms;
@@ -613,7 +698,7 @@
   block-size: 32px;
   border-radius: 50%;
   background: var(--play-cool);
-  color: #fff;
+  color: var(--play-on-accent);
   font-weight: 700;
 }
 
@@ -622,9 +707,59 @@
   place-items: center;
   min-inline-size: 110px;
   min-block-size: 110px;
-  border: 3px dashed rgba(51, 64, 59, 0.25);
+  border: 3px dashed var(--play-line-strong);
   border-radius: 20px;
-  background: rgba(255, 255, 255, 0.6);
+  background: var(--play-glass);
+}
+
+/* Recessed socket of the single-piece inset puzzle — the outline sits "inside"
+   the board, like the cut-out in a wooden tray. */
+.inset-socket {
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 4px dashed var(--play-line-strong);
+  border-radius: 28px;
+  background: var(--play-glass);
+  box-shadow: inset 0 6px 14px -8px rgba(51, 64, 59, 0.45);
+}
+
+/* Multi-piece puzzle: the tray is a tidy grid with even gaps, the board is
+   flush (no gaps) so pieces pressed in place join into one picture. */
+.puzzle-board {
+  display: grid;
+  gap: 0;
+  padding: 6px;
+  border-radius: 18px;
+  background: var(--play-glass);
+  box-shadow: inset 0 4px 12px -8px rgba(51, 64, 59, 0.45);
+}
+
+.puzzle-board.is-complete {
+  box-shadow: 0 0 0 4px var(--play-cool);
+}
+
+.puzzle-tray {
+  display: grid;
+  justify-content: center;
+}
+
+.puzzle-slot {
+  padding: 0;
+  border: 2px dashed var(--play-line-strong);
+  border-radius: 0;
+  background: transparent;
+}
+
+.puzzle-slot.is-filled {
+  border-color: transparent;
+  background-origin: border-box;
+  background-repeat: no-repeat;
+}
+
+.puzzle-tray > button {
+  background-origin: border-box;
+  background-repeat: no-repeat;
 }
 
 .game-tap-pad {
@@ -707,7 +842,7 @@
   overflow: hidden;
   cursor: pointer;
   box-shadow: 0 10px 24px -18px rgba(51, 64, 59, 0.6);
-  border: 4px solid #fff;
+  border: 4px solid var(--play-panel);
 }
 
 .hotspot-hint {
@@ -717,9 +852,34 @@
   transform: translateX(-50%);
   padding: 0.4rem 1.1rem;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.88);
+  background: var(--play-glass-strong);
   font-size: 0.95rem;
   font-weight: 700;
   color: var(--play-cool);
   box-shadow: 0 6px 16px -10px rgba(51, 64, 59, 0.5);
+}
+
+.game-topbar-start {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.game-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 2.25rem;
+  padding: 0.25rem 0.9rem;
+  border: 1px solid rgb(0 0 0 / 0.12);
+  border-radius: 999px;
+  background: #fff;
+  color: inherit;
+  font: inherit;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.game-back:hover {
+  background: rgb(0 0 0 / 0.04);
 }

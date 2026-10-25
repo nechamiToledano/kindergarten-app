@@ -10,6 +10,7 @@ describe('game plugins', () => {
       'COMPARISON',
       'DRAG_MATCH',
       'HOTSPOT_IMAGE',
+      'INSET_PUZZLE',
       'MANUAL_OBSERVATION',
       'MULTI_IMAGE_CHOICE',
       'PATTERN_COPY',
@@ -18,6 +19,19 @@ describe('game plugins', () => {
       'SEQUENTIAL_TAP',
       'SYLLABLE_COUNT',
     ]);
+  });
+
+  it('scores an inset puzzle only once the piece is seated', () => {
+    const p = registry.get('INSET_PUZZLE');
+    const config = {
+      gameType: 'INSET_PUZZLE' as const,
+      promptAudioUrl: 'p.mp3',
+      imageUrl: 'dog.png',
+      silhouetteUrl: 'dog-shadow.png',
+    };
+    expect(p.score(config, true).correct).toBe(true);
+    expect(p.score(config, false).correct).toBe(false);
+    expect(p.assetsOf(config)).toHaveLength(3);
   });
 
   it('scores a binary image choice', () => {

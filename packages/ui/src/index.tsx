@@ -5,6 +5,7 @@ import { cn } from './primitives.js';
 export * from './primitives.js';
 export * from './shell.js';
 export * from './icons.js';
+export * from './theme.js';
 
 /* ==========================================================================
  * The child-facing surface.

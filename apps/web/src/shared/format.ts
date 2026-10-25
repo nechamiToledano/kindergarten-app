@@ -71,6 +71,7 @@ export const GAME_TYPE_LABELS: Record<string, string> = {
   COMPARISON: 'השוואה',
   PUZZLE: 'פאזל',
   PATTERN_COPY: 'העתקת מתכונת',
+  INSET_PUZZLE: 'פאזל חלק אחד',
 };
 
 const HE_MONTHS = [

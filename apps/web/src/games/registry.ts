@@ -11,6 +11,7 @@ import { Puzzle } from './puzzle/Puzzle';
 import { PatternCopy } from './pattern-copy/PatternCopy';
 import { SyllableCount } from './syllable-count/SyllableCount';
 import { PatternSequence } from './pattern-sequence/PatternSequence';
+import { InsetPuzzle } from './inset-puzzle/InsetPuzzle';
 import { ManualObservation } from './manual-observation/ManualObservation';
 
 /**
@@ -28,6 +29,7 @@ export const gameComponents: Record<GameTypeId, GameComponent> = {
   PATTERN_COPY: PatternCopy as GameComponent,
   SYLLABLE_COUNT: SyllableCount as GameComponent,
   PATTERN_SEQUENCE: PatternSequence as GameComponent,
+  INSET_PUZZLE: InsetPuzzle as GameComponent,
   MANUAL_OBSERVATION: ManualObservation as GameComponent,
 };
 

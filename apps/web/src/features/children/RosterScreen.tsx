@@ -27,6 +27,7 @@ import {
 import { listSubdomains } from '../../shared/api/endpoints';
 import { queryKeys, useChildren, useCreateSession, useToggleWatch } from '../../shared/api/queries';
 import { useDebounced } from '../../shared/use-debounced';
+import { useUrlState } from '../../shared/use-url-state';
 import {
   AGE_GROUP_SHORT,
   STATUS_LABELS,
@@ -62,10 +63,18 @@ const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
  * names with no state is a list a teacher has to open one by one to use.
  */
 export function RosterScreen() {
-  const [search, setSearch] = useState('');
-  const [ageGroup, setAgeGroup] = useState<AgeFilter>('ALL');
-  const [status, setStatus] = useState<StatusFilter>('ALL');
-  const [page, setPage] = useState(1);
+  // Filters and page live in the URL, so returning from a child's profile
+  // brings the roster back exactly as it was left.
+  const [filters, patchFilters] = useUrlState({
+    q: '',
+    age: 'ALL',
+    status: 'ALL',
+    page: '1',
+  });
+  const search = filters.q;
+  const ageGroup = filters.age as AgeFilter;
+  const status = filters.status as StatusFilter;
+  const page = Math.max(1, Number(filters.page) || 1);
   const [dialog, setDialog] = useState<ChildListItem | 'new' | null>(null);
   const [toast, setToast] = useState<{ message: string; tone: 'neutral' | 'absent' } | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -156,10 +165,10 @@ export function RosterScreen() {
     }
   };
 
-  const resetTo = <T,>(setter: (value: T) => void) => (value: T) => {
-    setter(value);
-    setPage(1);
-  };
+  const setSearch = (value: string) => patchFilters({ q: value, page: '1' });
+  const setAgeGroup = (value: AgeFilter) => patchFilters({ age: value, page: '1' });
+  const setStatus = (value: StatusFilter) => patchFilters({ status: value, page: '1' });
+  const setPage = (next: number) => patchFilters({ page: String(next) });
 
   const pageCount = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;
   const filtered = debouncedSearch !== '' || ageGroup !== 'ALL' || status !== 'ALL';
@@ -185,12 +194,12 @@ export function RosterScreen() {
             className="min-w-56 flex-1 sm:max-w-xs"
             placeholder="חיפוש לפי שם…"
             value={search}
-            onChange={(event) => resetTo(setSearch)(event.target.value)}
+            onChange={(event) => setSearch(event.target.value)}
             aria-label="חיפוש ילד/ה"
           />
-          <FilterChips options={AGE_FILTERS} value={ageGroup} onChange={resetTo(setAgeGroup)} />
+          <FilterChips options={AGE_FILTERS} value={ageGroup} onChange={setAgeGroup} />
         </div>
-        <FilterChips options={STATUS_FILTERS} value={status} onChange={resetTo(setStatus)} />
+        <FilterChips options={STATUS_FILTERS} value={status} onChange={setStatus} />
       </div>
 
       {selected.size > 0 && (
@@ -374,7 +383,7 @@ export function RosterScreen() {
               variant="outline"
               size="sm"
               disabled={page <= 1}
-              onClick={() => setPage((value) => value - 1)}
+              onClick={() => setPage(page - 1)}
             >
               הקודם
             </Button>
@@ -382,7 +391,7 @@ export function RosterScreen() {
               variant="outline"
               size="sm"
               disabled={page >= pageCount}
-              onClick={() => setPage((value) => value + 1)}
+              onClick={() => setPage(page + 1)}
             >
               הבא
             </Button>

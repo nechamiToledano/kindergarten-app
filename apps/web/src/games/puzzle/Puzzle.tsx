@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type CSSProperties } from 'react';
 import type { GameConfig } from '@kga/contracts';
 import type { GameComponentProps } from '../types';
 import { DragGhost, SubmitButton } from '../ui';
@@ -7,13 +7,17 @@ import { useDragDrop } from '../useDragDrop';
 type Config = Extract<GameConfig, { gameType: 'PUZZLE' }>;
 
 /**
- * Spec §4.7 — assemble the image from its pieces. Drag a piece from the tray
- * onto its slot, or tap a piece then tap a slot to drop it (tap a filled slot
- * to send it back) — the tap flow stays as the reliable fallback. Answer:
- * slot → piece index; the puzzle plugin scores it correct when every slot
- * holds its own piece.
+ * Spec §4.7 — assemble the image from its pieces. The loose pieces wait in a
+ * tidy grid with even gaps; the board is flush, so pieces pressed into their
+ * places join up into one picture. Drag a piece onto the board, or tap a piece
+ * then tap a slot (tap a filled slot to send the piece back) — the tap flow
+ * stays as the reliable fallback. Answer: slot → piece index; the puzzle plugin
+ * scores it correct when every slot holds its own piece.
+ *
+ * The source image is assumed square, so a piece is `board / cols` wide and
+ * `board / rows` tall — a 2×3 or 1×2 puzzle keeps the picture undistorted.
  */
-function sliceStyle(piece: number, rows: number, cols: number) {
+function sliceStyle(piece: number, rows: number, cols: number): CSSProperties {
   const row = Math.floor(piece / cols);
   const col = piece % cols;
   return {
@@ -21,8 +25,11 @@ function sliceStyle(piece: number, rows: number, cols: number) {
     backgroundPosition: `${cols === 1 ? 0 : (col / (cols - 1)) * 100}% ${
       rows === 1 ? 0 : (row / (rows - 1)) * 100
     }%`,
-  } as const;
+  };
 }
+
+const TRAY_GAP = 12;
+const TRAY_SCALE = 0.8;
 
 export function Puzzle({ config, disabled, onAnswer }: GameComponentProps<Config>) {
   const { rows, cols, pieceCount, imageUrl } = config;
@@ -73,81 +80,82 @@ export function Puzzle({ config, disabled, onAnswer }: GameComponentProps<Config
     onTap: (pieceId) => setSelected((cur) => (cur === Number(pieceId) ? null : Number(pieceId))),
   });
 
-  // Board fits within the play card regardless of piece count — a 6x6 puzzle
-  // and a 2x2 puzzle both resolve to a tile size that keeps the whole board
-  // on screen without scrolling.
-  const tileVar = `clamp(48px, ${Math.floor(560 / cols)}px, 96px)`;
-  const tile = { inlineSize: tileVar, blockSize: tileVar, borderRadius: 10, backgroundImage: `url("${imageUrl}")` } as const;
+  const image = { backgroundImage: `url("${imageUrl}")` } as const;
+  const tileW = `calc(var(--bw) / ${cols})`;
+  const tileH = `calc(var(--bw) / ${rows})`;
+  const trayW = `calc(var(--bw) / ${cols} * ${TRAY_SCALE})`;
+  const trayH = `calc(var(--bw) / ${rows} * ${TRAY_SCALE})`;
 
   return (
-    // Forced LTR: the piece slicing below is plain left-to-right column math
+    // Forced LTR: the piece slicing above is plain left-to-right column math
     // (col = piece % cols), and CSS Grid/flex auto-placement mirrors under the
     // page's dir="rtl" — without this, a child can assemble the picture
     // perfectly and still fail the piece===slot check, because "slot 0" would
     // land on the visual right instead of the left the slice math assumes.
-    <div dir="ltr" style={{ display: 'grid', gap: 'clamp(0.75rem, 2vw, 1.5rem)', justifyItems: 'center' }}>
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: `repeat(${cols}, ${tileVar})`,
-          gap: 2,
-          padding: 6,
-          background: 'var(--border)',
-          borderRadius: 14,
-        }}
-      >
-        {placed.map((piece, slot) => {
-          const isOver = piece === null && overZone === String(slot);
-          return (
-            <button
-              key={slot}
-              type="button"
-              aria-label={piece === null ? `משבצת ריקה ${slot + 1}, הקישו כדי להניח כאן חלק` : `משבצת ${slot + 1}, מלאה`}
-              disabled={disabled}
-              onClick={() => dropInto(slot)}
-              className={`is-drop-target${piece === null ? ' game-slot' : ''}${isOver ? ' is-drag-over' : ''}${justLanded === slot ? ' drop-landed' : ''}`}
-              {...(piece === null ? getDropZoneProps(String(slot)) : {})}
-              style={{
-                ...tile,
-                minInlineSize: 'unset',
-                minBlockSize: 'unset',
-                border:
-                  piece === null && selected !== null
-                    ? '3px dashed var(--play-cool)'
-                    : piece === null
-                      ? undefined
-                      : '3px solid transparent',
-                ...(piece === null ? {} : sliceStyle(piece, rows, cols)),
-                cursor: disabled ? 'default' : 'pointer',
-              }}
-            />
-          );
-        })}
-      </div>
-      <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', justifyContent: 'center' }}>
-        {tray.map((piece) => {
-          const isDraggingThis = dragging?.id === String(piece) && dragging.moved;
-          return (
-            <button
-              key={piece}
-              type="button"
-              aria-label="חתיכה"
-              disabled={disabled}
-              className={`is-draggable${isDraggingThis ? ' is-dragging' : ''}`}
-              {...getDraggableProps(String(piece), {
-                backgroundImage: tile.backgroundImage,
-                borderRadius: tile.borderRadius,
-                ...sliceStyle(piece, rows, cols),
-              })}
-              style={{
-                ...tile,
-                ...sliceStyle(piece, rows, cols),
-                border: selected === piece ? '4px solid var(--accent-2)' : '4px solid transparent',
-                cursor: disabled ? 'default' : 'grab',
-              }}
-            />
-          );
-        })}
+    <div
+      dir="ltr"
+      style={{
+        '--bw': 'clamp(200px, 36vmin, 340px)',
+        display: 'grid',
+        gap: 'clamp(0.75rem, 2vw, 1.5rem)',
+        justifyItems: 'center',
+      } as CSSProperties}
+    >
+      <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', gap: 'clamp(1rem, 3vw, 2.5rem)' }}>
+        <div
+          className={`puzzle-board${complete ? ' is-complete' : ''}`}
+          style={{ gridTemplateColumns: `repeat(${cols}, ${tileW})`, gridAutoRows: tileH }}
+        >
+          {placed.map((piece, slot) => {
+            const isOver = piece === null && overZone === String(slot);
+            return (
+              <button
+                key={slot}
+                type="button"
+                aria-label={piece === null ? `משבצת ריקה ${slot + 1}, הקישו כדי להניח כאן חלק` : `משבצת ${slot + 1}, מלאה`}
+                disabled={disabled}
+                onClick={() => dropInto(slot)}
+                className={`is-drop-target puzzle-slot${piece === null ? '' : ' is-filled'}${isOver ? ' is-drag-over' : ''}${justLanded === slot ? ' drop-landed' : ''}`}
+                {...(piece === null ? getDropZoneProps(String(slot)) : {})}
+                style={{
+                  ...(piece === null
+                    ? selected !== null
+                      ? { borderColor: 'var(--play-cool)' }
+                      : {}
+                    : { ...image, ...sliceStyle(piece, rows, cols) }),
+                  cursor: disabled ? 'default' : 'pointer',
+                }}
+              />
+            );
+          })}
+        </div>
+        {tray.length > 0 && (
+          <div
+            className="puzzle-tray"
+            style={{ gridTemplateColumns: `repeat(${cols}, ${trayW})`, gridAutoRows: trayH, gap: TRAY_GAP }}
+          >
+            {tray.map((piece) => {
+              const isDraggingThis = dragging?.id === String(piece) && dragging.moved;
+              return (
+                <button
+                  key={piece}
+                  type="button"
+                  aria-label="חתיכה"
+                  disabled={disabled}
+                  className={`is-draggable${isDraggingThis ? ' is-dragging' : ''}`}
+                  {...getDraggableProps(String(piece), { ...image, borderRadius: 6, ...sliceStyle(piece, rows, cols) })}
+                  style={{
+                    ...image,
+                    ...sliceStyle(piece, rows, cols),
+                    borderRadius: 6,
+                    border: selected === piece ? '4px solid var(--accent-2)' : '2px solid var(--play-line-strong)',
+                    cursor: disabled ? 'default' : 'grab',
+                  }}
+                />
+              );
+            })}
+          </div>
+        )}
       </div>
       <DragGhost dragging={dragging} ghostRef={ghostRef} />
       <SubmitButton disabled={disabled || !complete} onClick={() => onAnswer(placed)}>

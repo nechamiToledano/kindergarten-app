@@ -4,6 +4,7 @@ import {
   ComparisonConfigSchema,
   DragMatchConfigSchema,
   HotspotImageConfigSchema,
+  InsetPuzzleConfigSchema,
   ManualObservationConfigSchema,
   MultiImageChoiceConfigSchema,
   PatternCopyConfigSchema,
@@ -261,6 +262,15 @@ export const patternSequencePlugin: GamePlugin<Infer<typeof PatternSequenceConfi
   },
 };
 
+/** Single-piece inset puzzle — the one piece has to be seated in its socket; the answer is `true` when it is. */
+export const insetPuzzlePlugin: GamePlugin<Infer<typeof InsetPuzzleConfigSchema>> = {
+  id: 'INSET_PUZZLE',
+  configSchema: InsetPuzzleConfigSchema,
+  score: (_config, answer) => ({ correct: answer === true }),
+  assetsOf: (config) => [audio(config.promptAudioUrl), image(config.imageUrl), image(config.silhouetteUrl)],
+  meta: { label: 'Inset puzzle', hints: { silhouetteUrl: 'Outline of the same object as imageUrl' } },
+};
+
 /** Physical / observation-only subdomains (Spec §18.1 q5) — no game, always "correct". */
 export const manualObservationPlugin: GamePlugin<Infer<typeof ManualObservationConfigSchema>> = {
   id: 'MANUAL_OBSERVATION',
@@ -281,6 +291,7 @@ export const GAME_PLUGINS: GamePlugin[] = [
   patternCopyPlugin as GamePlugin,
   syllableCountPlugin as GamePlugin,
   patternSequencePlugin as GamePlugin,
+  insetPuzzlePlugin as GamePlugin,
   manualObservationPlugin as GamePlugin,
 ];
 

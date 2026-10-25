@@ -59,10 +59,18 @@ function promptAudioSequence(config: GameConfig): string[] {
 export function GamePlayer({
   subdomain,
   onComplete,
+  onExit,
 }: {
   subdomain: PlayableSubdomain;
   onComplete: (result: SubdomainRunResult) => void;
+  /** Leaves the game for the screen it was opened from. Shown on every phase. */
+  onExit?: () => void;
 }) {
+  const exitButton = onExit ? (
+    <button type="button" className="game-back" onClick={onExit} aria-label="חזרה">
+      <span aria-hidden="true">→</span> חזרה
+    </button>
+  ) : null;
   const { config, plugin } = useMemo(() => {
     const cfg = subdomain.gameConfig;
     return { config: cfg, plugin: engineRegistry.get(cfg.gameType) };
@@ -78,14 +86,37 @@ export function GamePlayer({
     [demoConfig],
   );
 
-  const { unlock, play, speak } = useAudioUnlock();
+  const { unlock, play, speak, stop } = useAudioUnlock();
+
+  // The child's (or teacher's) mute choice sticks across games in the session
+  // and reloads — it silences spoken instructions only, not the feedback sfx.
+  const [muted, setMuted] = useState(() => {
+    try {
+      return localStorage.getItem('kga.instructionMuted') === '1';
+    } catch {
+      return false;
+    }
+  });
+  const mutedRef = useRef(muted);
+  mutedRef.current = muted;
+  const toggleMuted = () => {
+    const next = !muted;
+    mutedRef.current = next;
+    setMuted(next);
+    try {
+      localStorage.setItem('kga.instructionMuted', next ? '1' : '0');
+    } catch {
+      /* storage unavailable — the choice just won't persist */
+    }
+    if (next) stop();
+  };
 
   // Real speech is a better stand-in than an abstract tone for a subdomain
   // whose human recording hasn't landed yet — speak the instruction text
   // itself instead of the terse tone seed.
   const playPrompt = useCallback(
     (url: string | null) => {
-      if (!url) return Promise.resolve();
+      if (!url || mutedRef.current) return Promise.resolve();
       if (isToneUrl(url)) return speak(subdomain.childInstruction);
       return play(url);
     },
@@ -200,7 +231,7 @@ export function GamePlayer({
       case 'TeacherInstruction':
         return (
           <main className="game-screen game-screen-centered">
-            <div className="game-topbar"><span className="game-brand">משחקים ולומדים</span><span className="game-step">הכנה למשחק</span></div>
+            <div className="game-topbar"><span className="game-topbar-start">{exitButton}<span className="game-brand">משחקים ולומדים</span></span><span className="game-step">הכנה למשחק</span></div>
             <div className="game-hero-card">
               <span className="game-hero-icon" aria-hidden="true">🎈</span>
               <span className="game-kicker">תרגול אישי</span>
@@ -217,8 +248,8 @@ export function GamePlayer({
       case 'Demo':
         return (
           <main className="game-screen game-screen-centered">
-            <div className="game-topbar"><span className="game-brand">משחקים ולומדים</span><span className="game-step">דוגמה</span></div>
-            <div className="game-play-header">
+            <div className="game-topbar"><span className="game-topbar-start">{exitButton}<span className="game-brand">משחקים ולומדים</span></span><span className="game-step">דוגמה</span></div>
+            <div className="game-instruction-corner">
               <div className="game-instruction-pill">בואו נראה דוגמה ביחד</div>
             </div>
             <div className="game-play-card">
@@ -238,44 +269,66 @@ export function GamePlayer({
           </main>
         );
 
+      // The instruction lives on the game's own screen: while it is being
+      // spoken (ChildInstruction) the board is already visible but locked, then
+      // it unlocks in place (Playing) with no screen change.
       case 'ChildInstruction':
-        return (
-          <main className="game-screen game-screen-centered">
-            <div className="game-topbar"><span className="game-brand">משחקים ולומדים</span><span className="game-step">הקשבה</span></div>
-            <div className="instruction-card">
-              <span className={`sound-orb ${isPromptPlaying ? 'is-playing' : ''}`} aria-hidden="true"><span /></span>
-              <span className="game-kicker">הקשיבו להוראה</span>
-              <h1>{subdomain.childInstruction}</h1>
-              <button
-                type="button"
-                className="replay-button"
-                onClick={() => { const urls = promptAudioSequence(config); if (urls.length) { setIsPromptPlaying(true); void playPromptSequence(urls).finally(() => setIsPromptPlaying(false)); } }}
-                disabled={isPromptPlaying || !promptAudioSequence(config).length}
-              >
-                <span aria-hidden="true">🔁</span> השמעה חוזרת
-              </button>
-            </div>
-          </main>
-        );
-
-      case 'Playing':
+      case 'Playing': {
+        const listening = state.phase === 'ChildInstruction';
+        const hasAudio = promptAudioSequence(config).length > 0;
+        const replay = () => {
+          const urls = promptAudioSequence(config);
+          if (!urls.length) return;
+          mutedRef.current = false;
+          setMuted(false);
+          try { localStorage.setItem('kga.instructionMuted', '0'); } catch { /* ignore */ }
+          stop();
+          setIsPromptPlaying(true);
+          void playPromptSequence(urls).finally(() => setIsPromptPlaying(false));
+        };
         return (
           <main className="game-screen game-screen-centered">
             <div className="game-topbar">
-              <span className="game-brand">משחקים ולומדים</span>
+              <span className="game-topbar-start">{exitButton}<span className="game-brand">משחקים ולומדים</span></span>
               <span className="game-progress-dots" aria-label={`נסיון ${state.attempts + 1} מתוך ${MAX_ATTEMPTS}`}>
                 {Array.from({ length: MAX_ATTEMPTS }, (_, i) => (
                   <span key={i} className={`game-progress-dot ${i <= state.attempts ? 'is-done' : ''}`} />
                 ))}
               </span>
             </div>
-            <div className="game-play-header">
+            <div className="game-instruction-corner">
               <div className="game-instruction-pill">{subdomain.childInstruction}</div>
-              {promptAudioSequence(config).length > 0 && <button type="button" className="replay-button game-replay" onClick={() => { const urls = promptAudioSequence(config); if (urls.length) void playPromptSequence(urls); }} aria-label="שמיעת ההוראה שוב">🔊</button>}
+              {hasAudio && (
+                // One speaker button: tap while it is speaking to silence it, tap
+                // otherwise to hear the instruction again.
+                <button
+                  type="button"
+                  className={`speaker-btn ${isPromptPlaying ? 'is-playing' : ''} ${muted && !isPromptPlaying ? 'is-muted' : ''}`}
+                  onClick={isPromptPlaying ? toggleMuted : replay}
+                  aria-label={isPromptPlaying ? 'השתקת ההוראה' : 'שמיעת ההוראה'}
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true" className="speaker-icon">
+                    <path d="M4 9.5v5h3.6L13 19V5L7.6 9.5H4z" fill="currentColor" />
+                    {muted && !isPromptPlaying ? (
+                      <path d="M16.5 9.5l5 5m0-5l-5 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" fill="none" />
+                    ) : (
+                      <>
+                        <path className="speaker-wave speaker-wave-1" d="M16 9.2a4 4 0 010 5.6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" fill="none" />
+                        <path className="speaker-wave speaker-wave-2" d="M18.6 6.6a7.8 7.8 0 010 10.8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" fill="none" />
+                      </>
+                    )}
+                  </svg>
+                </button>
+              )}
             </div>
-            <div className="game-play-card"><AssetPreloader assets={assets}><Component config={config as never} disabled={false} onAnswer={handleAnswer} /></AssetPreloader></div>
+            <div className="game-play-card">
+              <AssetPreloader assets={assets}>
+                <Component config={config as never} disabled={listening} onAnswer={handleAnswer} />
+              </AssetPreloader>
+            </div>
           </main>
         );
+      }
 
       case 'WrongFeedback':
         return (
@@ -306,7 +359,7 @@ export function GamePlayer({
         const succeeded = state.phase === 'RatingSuccess';
         return (
           <main className="game-screen game-screen-centered">
-            <div className="game-topbar"><span className="game-brand">משחקים ולומדים</span><span className="game-step">סיכום פעילות</span></div>
+            <div className="game-topbar"><span className="game-topbar-start">{exitButton}<span className="game-brand">משחקים ולומדים</span></span><span className="game-step">סיכום פעילות</span></div>
             <div className="rating-card">
               <span className={`game-hero-icon ${succeeded ? '' : 'is-soft'}`} aria-hidden="true">{succeeded ? '🌟' : '💛'}</span>
               <span className="game-kicker">סיימנו את הפעילות</span>

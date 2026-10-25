@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { GameConfig } from '@kga/contracts';
 import type { GameComponentProps } from '../types';
-import { ImageCard, OptionGrid, SubmitButton } from '../ui';
+import { ImageCard, OptionGrid, SampleImage, SubmitButton } from '../ui';
 
 type Config = Extract<GameConfig, { gameType: 'MULTI_IMAGE_CHOICE' }>;
 
@@ -14,15 +14,7 @@ export function MultiImageChoice({ config, disabled, onAnswer }: GameComponentPr
 
   return (
     <>
-      {config.sampleImageUrl && (
-        <div style={{ display: 'grid', justifyItems: 'center', gap: 8, marginBlockEnd: 8 }}>
-          <img
-            src={config.sampleImageUrl}
-            alt="דוגמה"
-            style={{ inlineSize: 'clamp(90px, 20vw, 160px)', blockSize: 'clamp(90px, 20vw, 160px)', objectFit: 'cover', borderRadius: 16, border: '3px solid var(--accent-2, #2f8f5b)' }}
-          />
-        </div>
-      )}
+      {config.sampleImageUrl && <SampleImage src={config.sampleImageUrl} alt="דוגמה" />}
       <OptionGrid>
         {config.options.map((option) => (
           <ImageCard

@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { Avatar, cn } from './primitives.js';
 import { TelemMark } from './icons.js';
+import { ThemeToggle } from './theme.js';
 
 /**
  * The teacher shell.
@@ -259,6 +260,7 @@ export function AppShell({
           </div>
 
           {statusSlot}
+          <ThemeToggle />
           {actions && <div className="flex items-center gap-2">{actions}</div>}
         </header>
 
