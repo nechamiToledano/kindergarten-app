@@ -16,7 +16,10 @@ export const GameTypeIdSchema = z.enum([
   'PATTERN_COPY', // Spec §4.8 — added M5
   'SYLLABLE_COUNT', // Spec §9 (חלוקה להברות) — added M12
   'PATTERN_SEQUENCE', // Spec §9 (מתכונת/רצף) — added M12
+  'KNOCK_ECHO', // knock-and-count echo game — age 3–4
+  'SOUND_PICK', // one picture, two speakers — pick the sound that belongs to it
   'INSET_PUZZLE', // single-piece wooden inset puzzle (silhouette socket) — age 3–4
+  'INSTRUCTION_PLACE', // spoken instruction: drag item(s) onto a place in a scene — age 3–4
   'MANUAL_OBSERVATION',
 ]);
 export type GameTypeId = z.infer<typeof GameTypeIdSchema>;
@@ -45,6 +48,12 @@ export const BinaryImageChoiceConfigSchema = z.object({
    * (e.g. "what did you hear first, the drum or the bell?").
    */
   sequenceAudioUrls: z.array(z.string().min(1)).min(1).optional(),
+  /**
+   * When true the pictures stay hidden on the first attempt until the whole
+   * prompt (sound, then the voice naming it) has finished; on retries they are
+   * shown straight away and never disappear.
+   */
+  revealAfterAudio: z.boolean().optional(),
   options: z.tuple([ImageOptionSchema, ImageOptionSchema]),
   correctOptionId: z.string().min(1),
 });
@@ -179,14 +188,88 @@ export const PuzzleConfigSchema = PuzzleObjectSchema.refine(
 
 /**
  * Single-piece wooden inset puzzle: one loose piece (`imageUrl`, the full-colour
- * object) and one recessed socket showing its outline (`silhouetteUrl`). The
- * child drags the piece into the socket. Answer: `true` once it is seated.
+ * object, a transparent PNG) and one recessed socket showing its outline, which
+ * the client derives from the same image. The child drags the piece into the
+ * socket. Answer: `true` once it is seated.
  */
 export const InsetPuzzleConfigSchema = z.object({
   gameType: z.literal('INSET_PUZZLE'),
   promptAudioUrl: z.string().min(1),
   imageUrl: z.string().min(1),
-  silhouetteUrl: z.string().min(1),
+  /**
+   * Optional photo of a real wooden board with the socket cut into it, plus the
+   * socket's rectangle on that photo (0..1 of the photo, like HOTSPOT_IMAGE).
+   * When both are set the piece is dragged into the photographed socket;
+   * otherwise a tray with a derived silhouette is drawn instead.
+   */
+  boardUrl: z.string().min(1).optional(),
+  hole: z
+    .object({
+      x: z.number().min(0).max(1),
+      y: z.number().min(0).max(1),
+      width: z.number().gt(0).max(1),
+      height: z.number().gt(0).max(1),
+    })
+    .optional(),
+});
+
+/**
+ * Spoken-instruction placement: a scene picture with rectangular drop targets
+ * (0..1 space, like HOTSPOT_IMAGE) and loose items the child drags onto them,
+ * following what the narrator said ("put the apple on the plate"). `steps` lists
+ * the instructions to carry out, each naming the item and the target(s) that
+ * satisfy it; `ordered` additionally requires the items to be placed in `steps`
+ * order (two-step instructions). Items beyond `steps` act as decoys. The answer
+ * is the placements in the order made: [{ itemId, targetId }].
+ */
+export const InstructionPlaceConfigSchema = z.object({
+  gameType: z.literal('INSTRUCTION_PLACE'),
+  promptAudioUrl: z.string().min(1),
+  sceneImageUrl: z.string().min(1),
+  items: z.array(z.object({ id: z.string().min(1), imageUrl: z.string().min(1), label: z.string().optional() })).min(1).max(4),
+  targets: z
+    .array(
+      z.object({
+        id: z.string().min(1),
+        x: z.number().min(0).max(1),
+        y: z.number().min(0).max(1),
+        width: z.number().min(0).max(1),
+        height: z.number().min(0).max(1),
+      }),
+    )
+    .min(1)
+    .max(4),
+  steps: z.array(z.object({ itemId: z.string().min(1), targetIds: z.array(z.string().min(1)).min(1) })).min(1).max(4),
+  ordered: z.boolean().optional(),
+});
+
+/**
+ * Sound pick: one picture (e.g. an animal) and two speaker buttons, each playing
+ * a different sound. The child listens and picks the speaker whose sound belongs
+ * to the picture. Answer: the chosen option id.
+ */
+export const SoundPickConfigSchema = z.object({
+  gameType: z.literal('SOUND_PICK'),
+  promptAudioUrl: z.string().min(1),
+  imageUrl: z.string().min(1),
+  options: z.tuple([
+    z.object({ id: z.string().min(1), audioUrl: z.string().min(1), label: z.string().optional() }),
+    z.object({ id: z.string().min(1), audioUrl: z.string().min(1), label: z.string().optional() }),
+  ]),
+  correctOptionId: z.string().min(1),
+});
+
+/**
+ * Knock-and-count: an animated hand knocks `knockCount` times, then the child
+ * knocks the same number of times (on the screen, or on a real table or drum)
+ * while a calm voice counts "one, two, three" slowly. The app cannot hear a real
+ * table, so not tapping the screen is not an error: the teacher rates what she
+ * saw, and the answer is just the on-screen knocks, for the record.
+ */
+export const KnockEchoConfigSchema = z.object({
+  gameType: z.literal('KNOCK_ECHO'),
+  promptAudioUrl: z.string().min(1),
+  knockCount: z.number().int().min(1).max(10),
 });
 
 /**
@@ -256,6 +339,9 @@ export const GameConfigSchema = z.discriminatedUnion('gameType', [
   SyllableCountObjectSchema,
   PatternSequenceObjectSchema,
   InsetPuzzleConfigSchema,
+  InstructionPlaceConfigSchema,
+  KnockEchoConfigSchema,
+  SoundPickConfigSchema,
   ManualObservationConfigSchema,
 ]);
 export type GameConfig = z.infer<typeof GameConfigSchema>;

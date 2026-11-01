@@ -30,6 +30,9 @@ export interface SessionState {
 
 export type SessionEvent =
   | { type: 'START' } // teacher taps Start (user gesture — unlocks audio, §11.4)
+  // Teacher ran this station with real materials instead of the screen: skip
+  // the game and go straight to the rating, recorded as one observed attempt.
+  | { type: 'DONE_PHYSICALLY'; at: string }
   | { type: 'DEMO_DONE' }
   | { type: 'CHILD_AUDIO_FINISHED' }
   | { type: 'ANSWER'; correct: boolean; value: unknown; at: string }
@@ -53,15 +56,25 @@ export function initialSessionState(hasDemo = false): SessionState {
 export function sessionReducer(state: SessionState, event: SessionEvent): SessionState {
   switch (state.phase) {
     case 'TeacherInstruction':
+      if (event.type === 'DONE_PHYSICALLY') {
+        return {
+          ...state,
+          phase: 'RatingSuccess',
+          attempts: 1,
+          rawAnswers: [{ attempt: 1, at: event.at, value: { mode: 'physical' }, correct: true }],
+        };
+      }
       if (event.type !== 'START') return state;
       return { ...state, phase: state.hasDemo ? 'Demo' : 'ChildInstruction' };
 
     case 'Demo':
       return event.type === 'DEMO_DONE' ? { ...state, phase: 'ChildInstruction' } : state;
 
+    // The board is live from the moment the screen appears: an answer during
+    // the spoken instruction counts exactly like one in Playing.
     case 'ChildInstruction':
-      return event.type === 'CHILD_AUDIO_FINISHED' ? { ...state, phase: 'Playing' } : state;
-
+      if (event.type === 'CHILD_AUDIO_FINISHED') return { ...state, phase: 'Playing' };
+    // falls through
     case 'Playing': {
       if (event.type !== 'ANSWER') return state;
       const attempts = state.attempts + 1;

@@ -15,7 +15,7 @@ import {
 } from '@kga/game-engine';
 import { ConfettiBurst, RatingBar, type RatingValue } from '@kga/ui';
 import { AssetPreloader } from '../../shared/assets/AssetPreloader';
-import { isToneUrl } from '../../shared/assets/placeholder';
+import { isSpeechUrl, isToneUrl, speechText } from '../../shared/assets/placeholder';
 import { useAudioUnlock } from '../../shared/audio/AudioUnlockProvider';
 import { engineRegistry, gameComponents } from '../../games/registry';
 
@@ -77,6 +77,9 @@ export function GamePlayer({
   }, [subdomain]);
 
   const assets = useMemo(() => plugin.assetsOf(config), [plugin, config]);
+  // Puzzle stations can also be run with a real wooden puzzle; the teacher then
+  // rates what she saw instead of the child playing on the screen.
+  const allowsPhysical = config.gameType === 'PUZZLE' || config.gameType === 'INSET_PUZZLE' || config.gameType === 'INSTRUCTION_PLACE';
   const Component = gameComponents[config.gameType];
 
   const demoConfig = subdomain.demoConfig ?? null;
@@ -117,6 +120,7 @@ export function GamePlayer({
   const playPrompt = useCallback(
     (url: string | null) => {
       if (!url || mutedRef.current) return Promise.resolve();
+      if (isSpeechUrl(url)) return speak(speechText(url));
       if (isToneUrl(url)) return speak(subdomain.childInstruction);
       return play(url);
     },
@@ -125,11 +129,14 @@ export function GamePlayer({
 
   // A short silence between chained clips (e.g. drum … bell) so the two
   // sounds read as distinct beats instead of running into each other.
+  const [promptClipsDone, setPromptClipsDone] = useState(0);
   const playPromptSequence = useCallback(
     async (urls: string[]) => {
+      setPromptClipsDone(0);
       for (const [i, url] of urls.entries()) {
         if (i > 0) await new Promise((resolve) => setTimeout(resolve, 350));
         await playPrompt(url);
+        setPromptClipsDone(i + 1);
       }
     },
     [playPrompt],
@@ -162,6 +169,8 @@ export function GamePlayer({
   // (Spec: "תגובה חזותית עם צליל ... לתשובה נכונה או שגויה").
   useEffect(() => {
     if (state.phase === 'WrongFeedback') {
+      // The next attempt's board must start with no clips counted as played.
+      setPromptClipsDone(0);
       void play('/assets/audio/sfx-wrong.wav');
       const t = setTimeout(() => dispatch({ type: 'CONTINUE_AFTER_WRONG' }), 1600);
       return () => clearTimeout(t);
@@ -199,6 +208,9 @@ export function GamePlayer({
 
   const handleAnswer = useCallback(
     (value: unknown) => {
+      // An answer may arrive while the instruction is still being spoken.
+      stop();
+      setIsPromptPlaying(false);
       const outcome = plugin.score(config as never, value);
       dispatch({
         type: 'ANSWER',
@@ -207,7 +219,7 @@ export function GamePlayer({
         at: new Date().toISOString(),
       });
     },
-    [plugin, config],
+    [plugin, config, stop],
   );
 
   const start = () => {
@@ -241,6 +253,16 @@ export function GamePlayer({
                 <p>{subdomain.teacherInstruction}</p>
               </div>
               <button type="button" onClick={start} className="game-submit-btn game-submit-btn-lg">מתחילים לשחק</button>
+              {allowsPhysical && (
+                <button
+                  type="button"
+                  className="teacher-note-label"
+                  style={{ background: 'none', border: 0, textDecoration: 'underline', cursor: 'pointer' }}
+                  onClick={() => dispatch({ type: 'DONE_PHYSICALLY', at: new Date().toISOString() })}
+                >
+                  מעדיפה להגיש פאזל אמיתי? מעבר ישיר לדירוג
+                </button>
+              )}
             </div>
           </main>
         );
@@ -323,7 +345,7 @@ export function GamePlayer({
             </div>
             <div className="game-play-card">
               <AssetPreloader assets={assets}>
-                <Component config={config as never} disabled={listening} onAnswer={handleAnswer} />
+                <Component config={config as never} disabled={false} instructionPlaying={listening} attempt={state.attempts} promptClipsDone={promptClipsDone} onAnswer={handleAnswer} />
               </AssetPreloader>
             </div>
           </main>
@@ -366,7 +388,9 @@ export function GamePlayer({
               <h1>איך היה ל{state.attempts === 1 ? 'ך' : 'כם'}?</h1>
               <h2>{subdomain.name}</h2>
               <p className="rating-meta">
-                {succeeded
+                {state.rawAnswers[0] && (state.rawAnswers[0].value as { mode?: string } | null)?.mode === 'physical'
+                  ? 'הפעילות הוגשה עם פאזל אמיתי — דרגי מה שראית'
+                  : succeeded
                   ? `הצלחה בניסיון ${state.attempts} מתוך ${MAX_ATTEMPTS}`
                   : `לא הסתייע הפעם — זה בסדר, כל ניסיון מלמד משהו`}
               </p>

@@ -52,6 +52,9 @@ export function img(seed: string, label = seed): string {
 
 export const audio = (seed: string): string => `tone:${encodeURIComponent(seed)}`;
 
+/** A line the narrator speaks aloud (browser TTS) until a real recording exists. */
+const say = (text: string): string => `say:${encodeURIComponent(text)}`;
+
 export interface SubdomainSpec {
   id: string;
   name: string;
@@ -287,82 +290,92 @@ const AGE_3_4: AgeGroupContent = {
           id: uuid('a3210000', 1),
           name: 'זיהוי צלילים — חלק א',
           teacherInstruction:
-            'הַשְׁמִיעִי קול של בעל חיים מוכר (פרה). בַּקְּשִׁי מהילד/ה לבחור מבין שתי התמונות את בעל החיים שהשמיע את הקול.',
-          childInstruction: 'איזה בעל חיים שמעתם? געו בתמונה.',
+            'המסך נשאר אותו מסך: קודם נשמע קול של בעל חיים (מוווו). אחרי רגע מופיעות שתי התמונות (פרה וברווז), והקול שואל "מי זה היה?", והילד/ה בוחר/ת. כשצריך לחזור: שוב אותו סדר — הקול מושמע, התמונה מוצגת ונעלמת. בניסיון האחרון, אם הילד/ה לא יודע/ת, הקול מושמע והתמונות נשארות על המסך (לא נעלמות) והילד/ה בוחר/ת.',
+          childInstruction: 'בוא נקשיב לקול.',
           config: {
             gameType: 'BINARY_IMAGE_CHOICE',
             promptAudioUrl: '/assets/audio/sfx-cow.mp3',
+            sequenceAudioUrls: [say('מי זה היה?')],
+            revealAfterAudio: true,
             options: [
               { id: 'cow', imageUrl: '/assets/object-cow.png', label: 'פרה' },
-              { id: 'cat', imageUrl: '/assets/animal-cat.png', label: 'חתול' },
+              { id: 'duck', imageUrl: '/assets/object-duck.png', label: 'ברווז' },
             ],
             correctOptionId: 'cow',
           },
         },
         {
           id: uuid('a3210000', 2),
-          name: 'זיהוי צלילים — חלק ב (התאמה)',
+          name: 'זיהוי צלילים — חלק ב',
           teacherInstruction:
-            'לפניך קולות בעלי חיים וכרטיסים. בַּקְּשִׁי מהילד/ה להתאים כל קול לכרטיס בעל החיים המתאים.',
-          childInstruction: 'בחרו קול ואז געו בבעל החיים שלו.',
+            'על המסך תמונה של בעל חיים (פרה / ברווז) ושני רמקולים, כל אחד משמיע צליל אחר (למשל כלב וחתול). הילד/ה מקשיב/ה לקול, ורק כששומע/ת את הקול שמתאים לתמונה — לוחץ/ת עליה. בשלב הראשון: "בוא נקשיב לקול" ואז שואלים "זה מתאים?", ואם מתאים — מצביעים על התמונה.',
+          childInstruction: 'בוא נקשיב לקול. זה מתאים לתמונה?',
           config: {
-            gameType: 'DRAG_MATCH',
-            promptAudioUrl: audio('התאמת-קולות-חיות'),
-            pairs: [
-              {
-                sourceId: 'sound-dog',
-                sourceImageUrl: '/assets/sound-dog.png',
-                sourceAudioUrl: '/assets/audio/sfx-dog.mp3',
-                targetId: 'dog',
-                targetImageUrl: '/assets/object-dog.png',
-              },
-              {
-                sourceId: 'sound-cat',
-                sourceImageUrl: '/assets/sound-cat.png',
-                sourceAudioUrl: '/assets/audio/sfx-cat.mp3',
-                targetId: 'cat',
-                targetImageUrl: '/assets/animal-cat.png',
-              },
+            gameType: 'SOUND_PICK',
+            promptAudioUrl: audio('איזה-צליל-מתאים'),
+            imageUrl: '/assets/object-cow.png',
+            options: [
+              { id: 'cow', audioUrl: '/assets/audio/sfx-cow.mp3' },
+              { id: 'duck', audioUrl: '/assets/audio/sfx-duck.wav' },
             ],
+            correctOptionId: 'cow',
           },
         },
         {
           id: uuid('a3210000', 3),
           name: 'זיכרון סדר צלילים',
           teacherInstruction:
-            'הַשְׁמִיעִי שני צלילים ברצף (תוף ואז פעמון). בַּקְּשִׁי מהילד/ה לבחור מה נשמע ראשון.',
-          childInstruction: 'מה שמעתם קודם?',
+            'הַשְׁמִיעִי שני קולות של בעלי חיים ברצף (פרה ואז כלב). בַּקְּשִׁי מהילד/ה לבחור מי השמיע קול ראשון.',
+          childInstruction: 'איזה בעל חיים שמעתם קודם?',
           config: {
             gameType: 'BINARY_IMAGE_CHOICE',
-            promptAudioUrl: '/assets/audio/sfx-drum.wav',
-            sequenceAudioUrls: ['/assets/audio/sfx-bell.wav'],
+            promptAudioUrl: '/assets/audio/sfx-cow.mp3',
+            sequenceAudioUrls: ['/assets/audio/sfx-dog.mp3'],
             options: [
-              { id: 'drum', imageUrl: '/assets/object-drum.png', label: 'תוף' },
-              { id: 'bell', imageUrl: '/assets/instrument-bell.png', label: 'פעמון' },
+              { id: 'cow', imageUrl: '/assets/object-cow.png', label: 'פרה' },
+              { id: 'dog', imageUrl: '/assets/object-dog.png', label: 'כלב' },
             ],
-            correctOptionId: 'drum',
+            correctOptionId: 'cow',
           },
         },
         {
           id: uuid('a3210000', 4),
           name: 'הוראה שמיעתית פשוטה — שלב א',
           teacherInstruction:
-            'פעילות פיזית בלבד. תְּנִי הוראה של שלב אחד ("שִׂים/י את הכדור בסל") ובִדְקִי ביצוע. דַּרְגִי לפי הבנה וביצוע.',
-          childInstruction: 'הקשיבו לגננת ובצעו את מה שהיא מבקשת.',
+            'על המסך שולחן עם שתי צלחות, והמערכת אומרת "שים את התפוח בצלחת". הילד/ה גורר/ת את התפוח לאחת הצלחות. אפשר גם לתת הוראה של שלב אחד בחפצים אמיתיים ולעבור ישירות לדירוג. דַּרְגִי לפי הבנה וביצוע.',
+          childInstruction: 'הקשיבו וגררו את התפוח למקום הנכון.',
           config: {
-            gameType: 'MANUAL_OBSERVATION',
-            observationPrompt: 'הילד/ה מבצע/ת הוראה שמיעתית של שלב אחד ללא הדגמה.',
+            gameType: 'INSTRUCTION_PLACE',
+            promptAudioUrl: say('שים את התפוח בצלחת'),
+            sceneImageUrl: '/assets/scene-table-plates.png',
+            items: [{ id: 'apple', imageUrl: '/assets/item-apple.png', label: 'תפוח' }],
+            targets: [
+              { id: 'plate-left', x: 0.17, y: 0.3, width: 0.28, height: 0.22 },
+              { id: 'plate-right', x: 0.56, y: 0.3, width: 0.28, height: 0.22 },
+            ],
+            steps: [{ itemId: 'apple', targetIds: ['plate-left', 'plate-right'] }],
           },
         },
         {
           id: uuid('a3210000', 5),
           name: 'הוראה שמיעתית פשוטה — שלב ב (שתי הוראות)',
           teacherInstruction:
-            'פעילות פיזית בלבד. תְּנִי הוראה של שני שלבים ברצף אחד ("קודם תביא/י כדור, ואחר כך בובה") ובִדְקִי ביצוע נכון של שני השלבים ובסדר הנכון. דַּרְגִי לפי הבנה וביצוע.',
-          childInstruction: 'הקשיבו לגננת ובצעו את שתי ההוראות לפי הסדר.',
+            'על המסך שולחן עם סלסלה, והמערכת אומרת "שים את התפוח ואת הלחם בסלסלה". הילד/ה גורר/ת את שני הפריטים לסלסלה, קודם התפוח ואחר כך הלחם. אפשר גם לתת הוראה של שני שלבים בחפצים אמיתיים ולעבור ישירות לדירוג. דַּרְגִי לפי הבנה וביצוע של שני השלבים ובסדר הנכון.',
+          childInstruction: 'הקשיבו וגררו את התפוח ואת הלחם לסלסלה.',
           config: {
-            gameType: 'MANUAL_OBSERVATION',
-            observationPrompt: 'הילד/ה מבצע/ת רצף של שתי הוראות שמיעתיות בסדר הנכון.',
+            gameType: 'INSTRUCTION_PLACE',
+            promptAudioUrl: say('שים את התפוח ואת הלחם בסלסלה'),
+            sceneImageUrl: '/assets/scene-table-basket.png',
+            items: [
+              { id: 'apple', imageUrl: '/assets/item-apple.png', label: 'תפוח' },
+              { id: 'bread', imageUrl: '/assets/item-bread.png', label: 'לחם' },
+            ],
+            targets: [{ id: 'basket', x: 0.26, y: 0.22, width: 0.48, height: 0.4 }],
+            steps: [
+              { itemId: 'apple', targetIds: ['basket'] },
+              { itemId: 'bread', targetIds: ['basket'] },
+            ],
+            ordered: true,
           },
         },
       ],
@@ -385,12 +398,13 @@ const AGE_3_4: AgeGroupContent = {
         },
         {
           id: uuid('a3310000', 2),
-          name: 'התאמת תמונות (לוטו)',
-          teacherInstruction: 'בַּקְּשִׁי מהילד/ה למצוא בלוח את התמונה הזהה לתמונת הדוגמה שלמעלה.',
-          childInstruction: 'איזו תמונה זהה לתמונה שלמעלה?',
+          name: 'התאמת תמונות',
+          teacherInstruction:
+            'בעמוד יש תמונות, ויש שתי דרכי ביצוע: (1) בַּקְּשִׁי מהילד/ה להצביע על שתי התמונות שהן אותו דבר; (2) בַּקְּשִׁי מהילד/ה לגרור את התמונה אל הזוג שלה, התמונה שהיא אותו דבר. דַּרְגִי לפי הביצוע.',
+          childInstruction: 'תראו לי אותו דבר.',
           config: {
             gameType: 'MULTI_IMAGE_CHOICE',
-            promptAudioUrl: audio('לוטו-מצא-זהה-כדור'),
+            promptAudioUrl: say('תראו לי אותו דבר'),
             sampleImageUrl: '/assets/object-ball.png',
             options: [
               { id: 'doll', imageUrl: '/assets/object-doll.png', label: 'בובה' },
@@ -403,65 +417,48 @@ const AGE_3_4: AgeGroupContent = {
         {
           id: uuid('a3310000', 3),
           name: 'דמות ורקע',
-          teacherInstruction: 'בַּתְּמוּנָה גינה עמוסה. בַּקְּשִׁי מהילד/ה להקיש על הפח.',
-          childInstruction: 'איפה הפח? געו בו בתמונה.',
+          teacherInstruction:
+            'בַּתְּמוּנָה גינה עם כלב, כדור ופח. בַּקְּשִׁי מהילד/ה להצביע, כל פעם, על פריט שאת בוחרת מהתמונה (כאן: הפח).',
+          childInstruction: 'תראו לי את הפח.',
           config: {
             gameType: 'HOTSPOT_IMAGE',
-            promptAudioUrl: audio('איפה-הפח'),
-            imageUrl: '/assets/hotspot-garden-scene.png',
+            promptAudioUrl: say('תראו לי את הפח'),
+            imageUrl: '/assets/hotspot-park-dog.png',
+            // Order matters: the plugin takes the first rectangle that contains the tap,
+            // so small/foreground objects come before the large tree box.
             targets: [
-              { id: 'trash-can', x: 0.74, y: 0.68, width: 0.15, height: 0.18 },
-              { id: 'bench', x: 0.09, y: 0.58, width: 0.24, height: 0.22 },
-              { id: 'tree', x: 0.37, y: 0.14, width: 0.28, height: 0.5 },
+              { id: 'trash-can', x: 0.675, y: 0.44, width: 0.255, height: 0.475 },
+              { id: 'dog', x: 0.355, y: 0.465, width: 0.24, height: 0.44 },
+              { id: 'ball', x: 0.1, y: 0.635, width: 0.205, height: 0.285 },
+              { id: 'tree', x: 0, y: 0, width: 0.345, height: 0.63 },
             ],
             correctTargetIds: ['trash-can'],
           },
         },
         {
           id: uuid('a3310000', 6),
-          name: 'פאזל חלק אחד (שקע)',
+          name: 'פאזל חלק אחד',
           teacherInstruction:
-            'פעילות פיזית עם פאזל עץ של חלק אחד (חיה בשקע בצורת צללית). הגישי את החלק ובַקְּשִׁי מהילד/ה להכניס אותו לשקע. דַּרְגִי: קיים (עצמאי) / קיים עם תיווך (בעזרת רמז/הדגמה) / קיים חלקית / לא קיים. אפשר לבחור בגרסה הדיגיטלית שמיד אחריה במקום.',
-          childInstruction: 'הכניסו את החלק למקום שלו.',
-          config: {
-            gameType: 'MANUAL_OBSERVATION',
-            observationPrompt: 'הילד/ה מכניס/ה את חלק הפאזל היחיד לשקע המתאים, עצמאית או בעזרת תיווך.',
-          },
-        },
-        {
-          id: uuid('a3310000', 7),
-          name: 'פאזל חלק אחד (שקע) — גרסה דיגיטלית',
-          teacherInstruction:
-            'חלופה דיגיטלית לפאזל העץ שלמעלה — אפשר לבחור באחד מהם. בַּקְּשִׁי מהילד/ה לגרור את החיה אל הצללית שלה על המסך.',
-          childInstruction: 'גררו את החיה אל הצל שלה.',
+            'על המסך יש שקע בצורת צללית וחיה לגרירה אליו. אם עדיף לך להגיש פאזל עץ של חלק אחד, הגישי אותו ולחצי על "מעבר ישיר לדירוג" במסך הפתיחה. דַּרְגִי: קיים (עצמאי) / קיים עם תיווך (בעזרת רמז/הדגמה) / קיים חלקית / לא קיים.',
+          childInstruction: 'הכניסו את החיה למקום שלה.',
           config: {
             gameType: 'INSET_PUZZLE',
-            promptAudioUrl: audio('פאזל-חלק-אחד-כלב'),
-            imageUrl: '/assets/dog-color.png',
-            silhouetteUrl: '/assets/dog-silhouette.png',
+            promptAudioUrl: audio('פאזל-חלק-אחד-פרה'),
+            imageUrl: '/assets/inset-cow-wood.png',
+            boardUrl: '/assets/board-cow-wood.jpg',
+            hole: { x: 0.222, y: 0.273, width: 0.55, height: 0.447 },
           },
         },
         {
           id: uuid('a3310000', 8),
           name: 'פאזל 2 חלקים',
           teacherInstruction:
-            'פעילות פיזית עם פאזל עץ אמיתי של 2 חלקים על השולחן. דַּרְגִי: קיים (עצמאי) / קיים עם תיווך (בעזרת רמז/הדגמה) / קיים חלקית / לא קיים. אפשר לבחור בגרסה הדיגיטלית שמיד אחריה במקום.',
-          childInstruction: 'הרכיבו את הפאזל על השולחן.',
-          config: {
-            gameType: 'MANUAL_OBSERVATION',
-            observationPrompt: 'הילד/ה מרכיב/ה פאזל עץ של 2 חלקים, עצמאית או בעזרת תיווך.',
-          },
-        },
-        {
-          id: uuid('a3310000', 9),
-          name: 'פאזל 2 חלקים — גרסה דיגיטלית',
-          teacherInstruction:
-            'חלופה דיגיטלית לפאזל העץ שלמעלה — אפשר לבחור באחד מהם. בַּקְּשִׁי מהילד/ה לחבר את שני החלקים כך שייווצר ציור שלם.',
-          childInstruction: 'גררו את שני החלקים והצמידו אותם לתמונה שלמה.',
+            'הפאזל מוצג על המסך: החלקים מסודרים עם רווח ביניהם, והילד/ה מצמיד/ה אותם עד שנוצרת תמונה. אם עדיף לך להגיש פאזל עץ אמיתי, הגישי פאזל של 2 חלקים ו לחצי על "מעבר ישיר לדירוג" במסך הפתיחה. דַּרְגִי: קיים (עצמאי) / קיים עם תיווך (בעזרת רמז/הדגמה) / קיים חלקית / לא קיים.',
+          childInstruction: 'הצמידו את החלקים זה לזה כדי ליצור תמונה.',
           config: {
             gameType: 'PUZZLE',
-            promptAudioUrl: audio('פאזל-2-פרח-דיגיטלי'),
-            imageUrl: '/assets/puzzle-flower.png',
+            promptAudioUrl: audio('פאזל-2-חיפושית'),
+            imageUrl: '/assets/puzzle-butterfly.png',
             rows: 1,
             cols: 2,
             pieceCount: 2,
@@ -471,23 +468,12 @@ const AGE_3_4: AgeGroupContent = {
           id: uuid('a3310000', 4),
           name: 'פאזל 4 חלקים',
           teacherInstruction:
-            'פעילות פיזית עם פאזל עץ אמיתי על השולחן. הַתְחִילִי בחיבור 2 חלקים, ואז הגישי פאזל של 4 חלקים. דַּרְגִי: קיים (עצמאי) / קיים עם תיווך (בעזרת רמז/הדגמה) / קיים חלקית / לא קיים.',
-          childInstruction: 'הרכיבו את הפאזל על השולחן.',
-          config: {
-            gameType: 'MANUAL_OBSERVATION',
-            observationPrompt: 'הילד/ה מרכיב/ה פאזל עץ של 4 חלקים, עצמאית או בעזרת תיווך.',
-          },
-        },
-        {
-          id: uuid('a3310000', 5),
-          name: 'פאזל 4 חלקים — גרסה דיגיטלית',
-          teacherInstruction:
-            'חלופה דיגיטלית לפאזל העץ שלמעלה — אפשר לבחור באחד מהם. בַּקְּשִׁי מהילד/ה להרכיב את הפאזל על המסך.',
-          childInstruction: 'גררו כל חלק למקומו והצמידו אותם לתמונה שלמה.',
+            'הפאזל מוצג על המסך: החלקים מסודרים עם רווח ביניהם, והילד/ה מצמיד/ה אותם עד שנוצרת תמונה. אם עדיף לך להגיש פאזל עץ אמיתי, הגישי פאזל של 4 חלקים ו לחצי על "מעבר ישיר לדירוג" במסך הפתיחה. דַּרְגִי: קיים (עצמאי) / קיים עם תיווך (בעזרת רמז/הדגמה) / קיים חלקית / לא קיים.',
+          childInstruction: 'הצמידו את החלקים זה לזה כדי ליצור תמונה.',
           config: {
             gameType: 'PUZZLE',
-            promptAudioUrl: audio('פאזל-4-חיה-דיגיטלי'),
-            imageUrl: '/assets/puzzle-cow.png',
+            promptAudioUrl: audio('פאזל-4-פרה'),
+            imageUrl: '/assets/puzzle-dog.png',
             rows: 2,
             cols: 2,
             pieceCount: 4,
@@ -502,18 +488,19 @@ const AGE_3_4: AgeGroupContent = {
       subdomains: [
         {
           id: uuid('a3410000', 1),
-          name: 'ספירה / דפיקות',
+          name: 'ספירה',
           teacherInstruction:
-            'פעילות פיזית-שמיעתית. דְּפֹקִי על השולחן מספר פעמים ובַקְּשִׁי מהילד/ה לדפוק אותו מספר. דַּרְגִי.',
-          childInstruction: 'הקשיבו כמה פעמים דפקתי, ודפקו כמוני.',
+            'יד על המסך דופקת 3 פעמים. אחר כך תורו של הילד/ה: דופק/ת 3 פעמים — על המסך, או על שולחן או תוף אמיתי — ובזמן הזה קול רגוע סופר לאט "אחת, שתיים, שלוש" כדי לתת קצב. האפליקציה לא שומעת דפיקות על שולחן, ולכן דפיקה שלא על המסך אינה נחשבת שגיאה — דַּרְגִי אַתְּ בסוף: האם הילד/ה דפק/ה במספר הנכון ועצר/ה בזמן.',
+          childInstruction: 'הקשיבו כמה פעמים היד דפקה, ואז דפקו גם אתם — על המסך או על השולחן.',
           config: {
-            gameType: 'MANUAL_OBSERVATION',
-            observationPrompt: 'הילד/ה חוזר/ת על 1–3 דפיקות במספר נכון.',
+            gameType: 'KNOCK_ECHO',
+            promptAudioUrl: audio('דפיקות-שלוש'),
+            knockCount: 3,
           },
         },
         {
           id: uuid('a3410000', 2),
-          name: 'הרבה / מעט, גדול / קטן',
+          name: 'הרבה / מעט',
           teacherInstruction: 'הַצִּיגִי שתי תמונות. בַּקְּשִׁי מהילד/ה לבחור את התמונה שבה יש יותר.',
           childInstruction: 'באיזו תמונה יש יותר?',
           config: {
@@ -536,8 +523,8 @@ const AGE_3_4: AgeGroupContent = {
             promptAudioUrl: audio('מי-גדול-3-4'),
             comparisonType: 'BIGGER',
             items: [
-              { id: 'elephant', imageUrl: '/assets/animal-elephant.png', value: 10, label: 'פיל' },
-              { id: 'mouse', imageUrl: '/assets/animal-mouse.png', value: 1, label: 'עכבר' },
+              { id: 'big', imageUrl: '/assets/animal-elephant.png', value: 2, label: 'גדול' },
+              { id: 'small', imageUrl: '/assets/animal-elephant.png', value: 1, label: 'קטן' },
             ],
           },
         },
@@ -588,19 +575,19 @@ const AGE_4_5: AgeGroupContent = {
         },
         {
           id: uuid('a4210000', 2),
-          name: 'זיכרון סדר צלילים — שני כלים',
+          name: 'זיכרון סדר צלילים — שני בעלי חיים',
           teacherInstruction:
-            'הַשְׁמִיעִי תוף ואז חליל. בַּקְּשִׁי מהילד/ה להקיש על הכלים לפי הסדר ששמע/ה — קודם תוף, ואז חליל.',
-          childInstruction: 'מה שמעתם קודם, ומה אחר כך? הקישו לפי הסדר.',
+            'הַשְׁמִיעִי קול של כלב ואז קול של חתול. בַּקְּשִׁי מהילד/ה להקיש על בעלי החיים לפי הסדר ששמע/ה — קודם כלב, ואז חתול.',
+          childInstruction: 'איזה בעל חיים שמעתם קודם, ומי אחר כך? הקישו לפי הסדר.',
           config: {
             gameType: 'SEQUENTIAL_TAP',
-            promptAudioUrl: '/assets/audio/sfx-drum.wav',
-            sequenceAudioUrls: ['/assets/audio/sfx-flute.wav'],
+            promptAudioUrl: '/assets/audio/sfx-dog.mp3',
+            sequenceAudioUrls: ['/assets/audio/sfx-cat.mp3'],
             pads: [
-              { id: 'drum', color: '#b23a3a', label: 'תוף', imageUrl: '/assets/object-drum.png' },
-              { id: 'flute', color: '#3e6e8e', label: 'חליל', imageUrl: '/assets/instrument-flute.png' },
+              { id: 'dog', color: '#b23a3a', label: 'כלב', imageUrl: '/assets/object-dog.png' },
+              { id: 'cat', color: '#3e6e8e', label: 'חתול', imageUrl: '/assets/animal-cat.png' },
             ],
-            correctSequence: ['drum', 'flute'],
+            correctSequence: ['dog', 'cat'],
           },
         },
         {
@@ -666,41 +653,35 @@ const AGE_4_5: AgeGroupContent = {
         {
           id: uuid('a4310000', 2),
           name: 'דמות ורקע — פריט בתמונה מורכבת',
-          teacherInstruction: 'בַּתְּמוּנָה חדר משחקים עמוס. בַּקְּשִׁי מהילד/ה להקיש על הילד המתנדנד.',
-          childInstruction: 'איפה הילד שמתנדנד? געו בו.',
+          teacherInstruction:
+            'בַּתְּמוּנָה פארק עמוס. בַּקְּשִׁי מהילד/ה להצביע, כל פעם, על פריט שאת בוחרת מהתמונה (כאן: החתול).',
+          childInstruction: 'תראו לי חתול.',
           config: {
             gameType: 'HOTSPOT_IMAGE',
-            promptAudioUrl: audio('איפה-הילד-מתנדנד'),
-            imageUrl: '/assets/hotspot-playroom.png',
+            promptAudioUrl: say('תראו לי חתול'),
+            imageUrl: '/assets/hotspot-park-swing.png',
+            // Foreground/small objects first (first containing rectangle wins).
             targets: [
-              { id: 'swing', x: 0.04, y: 0.03, width: 0.32, height: 0.68 },
-              { id: 'table', x: 0.33, y: 0.55, width: 0.38, height: 0.42 },
-              { id: 'cabinet', x: 0.68, y: 0.15, width: 0.3, height: 0.62 },
+              { id: 'banana', x: 0.825, y: 0.625, width: 0.05, height: 0.075 },
+              { id: 'bin', x: 0.82, y: 0.615, width: 0.14, height: 0.325 },
+              { id: 'swing', x: 0.43, y: 0.48, width: 0.145, height: 0.235 },
+              { id: 'boy', x: 0.645, y: 0.485, width: 0.175, height: 0.4 },
+              { id: 'cat', x: 0.17, y: 0.65, width: 0.185, height: 0.31 },
+              { id: 'tree', x: 0, y: 0.02, width: 0.36, height: 0.62 },
             ],
-            correctTargetIds: ['swing'],
+            correctTargetIds: ['cat'],
           },
         },
         {
           id: uuid('a4310000', 3),
           name: 'פאזל 6 חלקים',
           teacherInstruction:
-            'פעילות פיזית עם פאזל עץ אמיתי על השולחן, 6 חלקים. דַּרְגִי: קיים (עצמאי) / קיים עם תיווך (בעזרת רמז/הדגמה) / קיים חלקית / לא קיים.',
-          childInstruction: 'הרכיבו את הפאזל על השולחן.',
-          config: {
-            gameType: 'MANUAL_OBSERVATION',
-            observationPrompt: 'הילד/ה מרכיב/ה פאזל עץ של 6 חלקים, עצמאית או בעזרת תיווך.',
-          },
-        },
-        {
-          id: uuid('a4310000', 5),
-          name: 'פאזל 6 חלקים — גרסה דיגיטלית',
-          teacherInstruction:
-            'חלופה דיגיטלית לפאזל העץ שלמעלה — אפשר לבחור באחד מהם. בַּקְּשִׁי מהילד/ה להרכיב את הפאזל על המסך.',
-          childInstruction: 'גררו כל חלק למקומו והצמידו אותם לתמונה שלמה.',
+            'הפאזל מוצג על המסך: החלקים מסודרים עם רווח ביניהם, והילד/ה מצמיד/ה אותם עד שנוצרת תמונה. אם עדיף לך להגיש פאזל עץ אמיתי, הגישי פאזל של 6 חלקים ו לחצי על "מעבר ישיר לדירוג" במסך הפתיחה. דַּרְגִי: קיים (עצמאי) / קיים עם תיווך (בעזרת רמז/הדגמה) / קיים חלקית / לא קיים.',
+          childInstruction: 'הצמידו את החלקים זה לזה כדי ליצור תמונה.',
           config: {
             gameType: 'PUZZLE',
-            promptAudioUrl: audio('פאזל-6-פרח-דיגיטלי'),
-            imageUrl: '/assets/puzzle-flower.png',
+            promptAudioUrl: audio('פאזל-6-פרח'),
+            imageUrl: '/assets/puzzle-lion.png',
             rows: 2,
             cols: 3,
             pieceCount: 6,
@@ -740,8 +721,8 @@ const AGE_4_5: AgeGroupContent = {
             promptAudioUrl: audio('מי-גדול'),
             comparisonType: 'BIGGER',
             items: [
-              { id: 'elephant', imageUrl: '/assets/animal-elephant.png', value: 10, label: 'פיל' },
-              { id: 'mouse', imageUrl: '/assets/animal-mouse.png', value: 1, label: 'עכבר' },
+              { id: 'big', imageUrl: '/assets/animal-elephant.png', value: 2, label: 'גדול' },
+              { id: 'small', imageUrl: '/assets/animal-elephant.png', value: 1, label: 'קטן' },
             ],
           },
         },
@@ -983,23 +964,12 @@ const AGE_5_6: AgeGroupContent = {
           id: uuid('a5210000', 3),
           name: 'פאזל 8 חלקים',
           teacherInstruction:
-            'פעילות פיזית עם פאזל עץ אמיתי על השולחן, 8 חלקים. דַּרְגִי: קיים (עצמאי) / קיים עם תיווך (בעזרת רמז/הדגמה) / קיים חלקית / לא קיים.',
-          childInstruction: 'הרכיבו את הפאזל על השולחן.',
-          config: {
-            gameType: 'MANUAL_OBSERVATION',
-            observationPrompt: 'הילד/ה מרכיב/ה פאזל עץ של 8 חלקים, עצמאית או בעזרת תיווך.',
-          },
-        },
-        {
-          id: uuid('a5210000', 5),
-          name: 'פאזל 8 חלקים — גרסה דיגיטלית',
-          teacherInstruction:
-            'חלופה דיגיטלית לפאזל העץ שלמעלה — אפשר לבחור באחד מהם. בַּקְּשִׁי מהילד/ה להרכיב את הפאזל על המסך.',
-          childInstruction: 'גררו כל חלק למקומו והצמידו אותם לתמונה שלמה.',
+            'הפאזל מוצג על המסך: החלקים מסודרים עם רווח ביניהם, והילד/ה מצמיד/ה אותם עד שנוצרת תמונה. אם עדיף לך להגיש פאזל עץ אמיתי, הגישי פאזל של 8 חלקים ו לחצי על "מעבר ישיר לדירוג" במסך הפתיחה. דַּרְגִי: קיים (עצמאי) / קיים עם תיווך (בעזרת רמז/הדגמה) / קיים חלקית / לא קיים.',
+          childInstruction: 'הצמידו את החלקים זה לזה כדי ליצור תמונה.',
           config: {
             gameType: 'PUZZLE',
-            promptAudioUrl: audio('פאזל-8-בית-דיגיטלי'),
-            imageUrl: '/assets/puzzle-house.png',
+            promptAudioUrl: audio('פאזל-8-בית'),
+            imageUrl: '/assets/puzzle-zebra.png',
             rows: 2,
             cols: 4,
             pieceCount: 8,
@@ -1009,23 +979,12 @@ const AGE_5_6: AgeGroupContent = {
           id: uuid('a5210000', 4),
           name: 'פאזל 10 חלקים',
           teacherInstruction:
-            'פעילות פיזית עם פאזל עץ אמיתי על השולחן, 10 חלקים. דַּרְגִי: קיים (עצמאי) / קיים עם תיווך (בעזרת רמז/הדגמה) / קיים חלקית / לא קיים.',
-          childInstruction: 'הרכיבו את הפאזל על השולחן.',
-          config: {
-            gameType: 'MANUAL_OBSERVATION',
-            observationPrompt: 'הילד/ה מרכיב/ה פאזל עץ של 10 חלקים, עצמאית או בעזרת תיווך.',
-          },
-        },
-        {
-          id: uuid('a5210000', 6),
-          name: 'פאזל 10 חלקים — גרסה דיגיטלית',
-          teacherInstruction:
-            'חלופה דיגיטלית לפאזל העץ שלמעלה — אפשר לבחור באחד מהם. בַּקְּשִׁי מהילד/ה להרכיב את הפאזל על המסך.',
-          childInstruction: 'גררו כל חלק למקומו והצמידו אותם לתמונה שלמה.',
+            'הפאזל מוצג על המסך: החלקים מסודרים עם רווח ביניהם, והילד/ה מצמיד/ה אותם עד שנוצרת תמונה. אם עדיף לך להגיש פאזל עץ אמיתי, הגישי פאזל של 10 חלקים ו לחצי על "מעבר ישיר לדירוג" במסך הפתיחה. דַּרְגִי: קיים (עצמאי) / קיים עם תיווך (בעזרת רמז/הדגמה) / קיים חלקית / לא קיים.',
+          childInstruction: 'הצמידו את החלקים זה לזה כדי ליצור תמונה.',
           config: {
             gameType: 'PUZZLE',
-            promptAudioUrl: audio('פאזל-10-פרה-דיגיטלי'),
-            imageUrl: '/assets/puzzle-cow.png',
+            promptAudioUrl: audio('פאזל-10-שמש-ובית'),
+            imageUrl: '/assets/puzzle-fish.png',
             rows: 2,
             cols: 5,
             pieceCount: 10,

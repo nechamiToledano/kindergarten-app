@@ -57,6 +57,7 @@ describe('seeded content', () => {
         expect(
           asset.url.startsWith('data:') ||
             asset.url.startsWith('tone:') ||
+            asset.url.startsWith('say:') ||
             asset.url.startsWith('http') ||
             asset.url.startsWith('/assets/'), // real files served from apps/web/public
           `unresolvable ${asset.kind} asset: ${asset.url.slice(0, 40)}`,

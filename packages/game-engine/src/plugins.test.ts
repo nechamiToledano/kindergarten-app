@@ -11,12 +11,15 @@ describe('game plugins', () => {
       'DRAG_MATCH',
       'HOTSPOT_IMAGE',
       'INSET_PUZZLE',
+      'INSTRUCTION_PLACE',
+      'KNOCK_ECHO',
       'MANUAL_OBSERVATION',
       'MULTI_IMAGE_CHOICE',
       'PATTERN_COPY',
       'PATTERN_SEQUENCE',
       'PUZZLE',
       'SEQUENTIAL_TAP',
+      'SOUND_PICK',
       'SYLLABLE_COUNT',
     ]);
   });
@@ -27,11 +30,43 @@ describe('game plugins', () => {
       gameType: 'INSET_PUZZLE' as const,
       promptAudioUrl: 'p.mp3',
       imageUrl: 'dog.png',
-      silhouetteUrl: 'dog-shadow.png',
     };
     expect(p.score(config, true).correct).toBe(true);
     expect(p.score(config, false).correct).toBe(false);
-    expect(p.assetsOf(config)).toHaveLength(3);
+    expect(p.assetsOf(config)).toHaveLength(2);
+  });
+
+  it('scores instruction placement by item/target, and by order when ordered', () => {
+    const p = registry.get('INSTRUCTION_PLACE');
+    const config = {
+      gameType: 'INSTRUCTION_PLACE' as const,
+      promptAudioUrl: 'p.mp3',
+      sceneImageUrl: 'scene.png',
+      items: [
+        { id: 'apple', imageUrl: 'a.png' },
+        { id: 'bread', imageUrl: 'b.png' },
+      ],
+      targets: [{ id: 'basket', x: 0, y: 0, width: 1, height: 1 }],
+      steps: [
+        { itemId: 'apple', targetIds: ['basket'] },
+        { itemId: 'bread', targetIds: ['basket'] },
+      ],
+    };
+    const inOrder = [{ itemId: 'apple', targetId: 'basket' }, { itemId: 'bread', targetId: 'basket' }];
+    const swapped = [...inOrder].reverse();
+    expect(p.score(config, inOrder).correct).toBe(true);
+    expect(p.score(config, swapped).correct).toBe(true);
+    expect(p.score({ ...config, ordered: true }, swapped).correct).toBe(false);
+    expect(p.score(config, inOrder.slice(0, 1)).correct).toBe(false);
+    expect(p.score(config, [{ itemId: 'apple', targetId: 'x' }, inOrder[1]]).correct).toBe(false);
+    expect(p.assetsOf(config)).toHaveLength(4);
+  });
+
+  it('never counts a knock echo as an error for knocking off-screen (the teacher rates it)', () => {
+    const p = registry.get('KNOCK_ECHO');
+    const config = { gameType: 'KNOCK_ECHO' as const, promptAudioUrl: 'p.mp3', knockCount: 3 };
+    expect(p.score(config, 0).correct).toBe(true);
+    expect(p.score(config, 3).correct).toBe(true);
   });
 
   it('scores a binary image choice', () => {

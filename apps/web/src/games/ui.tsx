@@ -12,7 +12,15 @@ import type { DraggingItem } from './useDragDrop';
  * back conditionally for those.
  */
 
-export function OptionGrid({ children, gap = 'clamp(1.25rem, 4vw, 3rem)' }: { children: ReactNode; gap?: string }) {
+export function OptionGrid({
+  children,
+  gap = 'clamp(1.25rem, 4vw, 3rem)',
+  alignItems,
+}: {
+  children: ReactNode;
+  gap?: string;
+  alignItems?: CSSProperties['alignItems'];
+}) {
   return (
     <div
       style={{
@@ -20,6 +28,7 @@ export function OptionGrid({ children, gap = 'clamp(1.25rem, 4vw, 3rem)' }: { ch
         gridTemplateColumns: 'repeat(auto-fit, minmax(clamp(110px, 22vw, 160px), 1fr))',
         gap,
         justifyItems: 'center',
+        alignItems,
         alignContent: 'center',
         inlineSize: 'min(900px, 90vw)',
         flexShrink: 0,
@@ -63,6 +72,7 @@ export function ImageCard({
   style,
   className,
   dragProps,
+  scale = 1,
 }: {
   src: string;
   label?: string;
@@ -74,6 +84,8 @@ export function ImageCard({
   className?: string;
   /** Spread from `useDragDrop().getDraggableProps(...)` to make the card pick-up-able. */
   dragProps?: Record<string, unknown>;
+  /** Multiplies the frame size (e.g. 0.5 to show the same art "small"). */
+  scale?: number;
 }) {
   return (
     <button
@@ -91,7 +103,10 @@ export function ImageCard({
         ...style,
       }}
     >
-      <span className="game-image-card-frame" style={{ inlineSize: 'clamp(90px, min(20vw, 22vh), 200px)', blockSize: 'clamp(90px, min(20vw, 22vh), 200px)' }}>
+      <span className="game-image-card-frame" style={{
+          inlineSize: `calc(clamp(90px, min(20vw, 22vh), 200px) * ${scale})`,
+          blockSize: `calc(clamp(90px, min(20vw, 22vh), 200px) * ${scale})`,
+        }}>
         <img
           src={src}
           alt={label ?? 'איור למשחק'}

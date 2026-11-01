@@ -22,6 +22,9 @@ export const GAME_TYPE_LABELS: Record<GameTypeId, string> = {
   SYLLABLE_COUNT: 'ספירת הברות',
   PATTERN_SEQUENCE: 'המשך רצף',
   INSET_PUZZLE: 'פאזל חלק אחד (שקע וצללית)',
+  INSTRUCTION_PLACE: 'הוראה שמיעתית — גרירה לסצנה',
+  KNOCK_ECHO: 'משחק הדפיקות',
+  SOUND_PICK: 'תמונה ושני רמקולים',
   MANUAL_OBSERVATION: 'תצפית ידנית',
 };
 
@@ -85,8 +88,10 @@ export const FIELD_LABELS: Partial<Record<GameTypeId, Record<string, string>>> =
     oddOneOutId: 'מזהה הפריט השונה',
   },
   INSET_PUZZLE: {
-    imageUrl: 'תמונת החלק (צבעונית)',
-    silhouetteUrl: 'תמונת הצללית (השקע)',
+    imageUrl: 'תמונת החלק (PNG שקוף; הצללית נוצרת ממנה)',
+  },
+  KNOCK_ECHO: {
+    knockCount: 'מספר הדפיקות',
   },
   SYLLABLE_COUNT: {
     wordImageUrl: 'תמונת המילה',

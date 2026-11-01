@@ -712,54 +712,112 @@
   background: var(--play-glass);
 }
 
-/* Recessed socket of the single-piece inset puzzle — the outline sits "inside"
-   the board, like the cut-out in a wooden tray. */
+/* Recessed socket of the single-piece inset puzzle — a wooden tray with the
+   object's outline cut into it. The outline is the piece's own image flattened
+   to a dark shape (see InsetPuzzle), so it fits exactly. */
 .inset-socket {
   display: grid;
-  place-items: center;
-  padding: 0;
-  border: 4px dashed var(--play-line-strong);
+  place-items: stretch;
+  padding: 14px;
+  border: 4px solid #d9b98a;
   border-radius: 28px;
-  background: var(--play-glass);
-  box-shadow: inset 0 6px 14px -8px rgba(51, 64, 59, 0.45);
+  background: linear-gradient(145deg, #ecd3a6, #e0bd88);
+  box-shadow: inset 0 6px 14px -8px rgba(80, 52, 20, 0.55);
 }
 
-/* Multi-piece puzzle: the tray is a tidy grid with even gaps, the board is
-   flush (no gaps) so pieces pressed in place join into one picture. */
-.puzzle-board {
-  display: grid;
-  gap: 0;
-  padding: 6px;
+.inset-socket-art {
+  display: block;
+  inline-size: 100%;
+  block-size: 100%;
+  pointer-events: none;
+}
+
+/* Photographed wooden board of the inset puzzle; the seated piece is laid over
+   the socket's rectangle (percentages of the board, set inline). */
+.inset-board {
+  position: relative;
+  padding: 0;
+  border: 0;
   border-radius: 18px;
+  background-color: #e6cfa6;
+  background-size: cover;
+  background-position: center;
+  box-shadow: 0 10px 24px -12px rgba(80, 52, 20, 0.55);
+}
+
+.inset-board-zone {
+  position: absolute;
+  border-radius: 14px;
+  pointer-events: none;
+}
+
+.inset-board-zone.is-over {
+  background: rgba(255, 255, 255, 0.28);
+  outline: 4px dashed var(--accent-2);
+}
+
+.inset-board-piece {
+  position: absolute;
+  object-fit: fill;
+  pointer-events: none;
+}
+
+.inset-piece {
+  background-color: transparent;
+  border: 0;
+  padding: 0;
+}
+
+.inset-piece.is-selected {
+  filter: drop-shadow(0 0 0 var(--accent-2)) drop-shadow(0 0 10px var(--accent-2));
+}
+
+/* Multi-piece puzzle: the pieces start in their right places but spread apart
+   with even gaps, and the child drags each one back against its neighbours.
+   A piece released close to its place snaps in flush and locks. */
+.puzzle-stage {
+  position: relative;
+  touch-action: none;
+}
+
+.puzzle-frame {
+  position: absolute;
+  border: 3px dashed var(--play-line-strong);
+  border-radius: 10px;
   background: var(--play-glass);
-  box-shadow: inset 0 4px 12px -8px rgba(51, 64, 59, 0.45);
 }
 
-.puzzle-board.is-complete {
-  box-shadow: 0 0 0 4px var(--play-cool);
-}
-
-.puzzle-tray {
-  display: grid;
-  justify-content: center;
-}
-
-.puzzle-slot {
+.puzzle-piece {
+  position: absolute;
+  box-sizing: border-box;
   padding: 0;
   border: 2px dashed var(--play-line-strong);
-  border-radius: 0;
-  background: transparent;
+  border-radius: 6px;
+  background-origin: border-box;
+  background-repeat: no-repeat;
+  box-shadow: 0 6px 12px -8px rgba(51, 64, 59, 0.6);
+  touch-action: none;
+  cursor: grab;
 }
 
-.puzzle-slot.is-filled {
+.puzzle-piece.is-held {
+  z-index: 5;
+  cursor: grabbing;
+  box-shadow: 0 16px 24px -12px rgba(51, 64, 59, 0.6);
+}
+
+.puzzle-piece.is-snapped {
   border-color: transparent;
-  background-origin: border-box;
-  background-repeat: no-repeat;
+  border-radius: 0;
+  box-shadow: none;
+  cursor: default;
+  pointer-events: none;
+  animation: drop-pop 260ms var(--play-ease);
 }
 
-.puzzle-tray > button {
-  background-origin: border-box;
-  background-repeat: no-repeat;
+.puzzle-stage.is-complete .puzzle-frame {
+  border-style: solid;
+  border-color: var(--play-cool);
 }
 
 .game-tap-pad {
@@ -836,8 +894,10 @@
 
 .hotspot-stage {
   position: relative;
-  inline-size: min(720px, 92vw);
-  block-size: min(60dvh, 520px);
+  /* Fixed 4:3 to match the artwork: taps are normalised against this box, so
+     any cropping from object-fit would shift every hotspot rectangle. */
+  aspect-ratio: 4 / 3;
+  inline-size: min(720px, 92vw, calc(60dvh * 4 / 3));
   border-radius: 24px;
   overflow: hidden;
   cursor: pointer;
@@ -882,4 +942,198 @@
 
 .game-back:hover {
   background: rgb(0 0 0 / 0.04);
+}
+
+/* Knock echo: a fist that drops onto a wooden table. Positions are fractions of
+   the scene, derived from the art (table 80% wide, hand 36% wide, hit on the
+   table's lighter "knocking spot"). */
+.knock-scene {
+  position: relative;
+  direction: ltr;
+  /* an explicit size: a % here collapses inside the shrink-wrapped board wrapper */
+  inline-size: min(88vw, 62dvh, 560px);
+  aspect-ratio: 100 / 83;
+  /* never let the arm widen the page */
+  overflow-x: clip;
+}
+
+.knock-table {
+  position: absolute;
+  inset-block-end: 0;
+  inset-inline-start: 10%;
+  inline-size: 80%;
+  padding: 0;
+  border: 0;
+  background: none;
+  border-radius: 24px;
+  cursor: default;
+}
+
+.knock-table.is-turn {
+  cursor: pointer;
+  animation: knock-invite 1.6s ease-in-out infinite;
+  filter: drop-shadow(0 0 14px var(--play-cool));
+}
+
+.knock-table:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+/* Rests a little raised; on the hit the knuckles land on the table's spot. */
+.knock-fist {
+  position: absolute;
+  inset-inline-start: 32%;
+  inset-block-start: 13.4%;
+  inline-size: 36%;
+  pointer-events: none;
+  transform: translateY(-12%);
+}
+
+.knock-fist.is-knocking {
+  animation: knock-fist 0.5s ease-in-out;
+}
+
+.knock-burst {
+  position: absolute;
+  inset-inline-start: 42.5%;
+  inset-block-start: 63%;
+  inline-size: 15%;
+  pointer-events: none;
+  opacity: 0;
+}
+
+.knock-burst.is-knocking {
+  animation: knock-burst 0.5s ease-out;
+}
+
+.knock-toc {
+  position: absolute;
+  inset-block-start: 48%;
+  inset-inline-start: 66%;
+  padding: 0.15rem 0.8rem;
+  border-radius: 999px;
+  background: #fff;
+  border: 3px solid var(--play-cool);
+  font-size: clamp(1.1rem, 3.5vw, 1.8rem);
+  font-weight: 800;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.knock-toc.is-knocking {
+  animation: knock-toc 0.8s ease-out;
+}
+
+.knock-turn {
+  min-block-size: 2.2rem;
+  padding: 0.2rem 1.2rem;
+  border-radius: 999px;
+  background: #fff;
+  border: 3px solid rgb(0 0 0 / 0.1);
+  font-size: clamp(1.1rem, 3.5vw, 1.6rem);
+  font-weight: 800;
+}
+
+.knock-turn.is-child {
+  border-color: var(--play-cool);
+  color: var(--play-cool);
+}
+
+@keyframes knock-fist {
+  0%, 100% { transform: translateY(-12%); }
+  20% { transform: translateY(-22%) rotate(-3deg); }
+  50% { transform: translateY(0); }
+}
+
+@keyframes knock-burst {
+  0%, 35% { opacity: 0; transform: scale(0.5); }
+  50% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1.25); }
+}
+
+@keyframes knock-toc {
+  0%, 35% { opacity: 0; transform: translateY(8px); }
+  50% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(-10px); }
+}
+
+@keyframes knock-invite {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.025); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .knock-fist.is-knocking,
+  .knock-table.is-turn {
+    animation: none;
+  }
+}
+
+/* Spoken-instruction placement: a scene with invisible drop targets, and the
+   loose items in a tray below it. */
+.instruction-board {
+  display: grid;
+  gap: clamp(0.75rem, 2.5vw, 1.5rem);
+  justify-items: center;
+  inline-size: min(560px, 92vw);
+}
+
+.instruction-stage {
+  position: relative;
+  inline-size: 100%;
+  aspect-ratio: 1;
+  border-radius: 28px;
+  overflow: hidden;
+  touch-action: none;
+}
+
+.instruction-target {
+  position: absolute;
+  padding: 0;
+  border: 4px dashed transparent;
+  border-radius: 999px;
+  background: transparent;
+  transition: border-color 150ms, background 150ms;
+}
+
+.instruction-target.is-armed {
+  border-color: var(--accent-2);
+}
+
+.instruction-target.is-drag-over {
+  border-color: var(--accent-2);
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.instruction-placed {
+  position: absolute;
+  translate: -50% -50%;
+  pointer-events: none;
+  filter: drop-shadow(0 6px 4px rgba(51, 64, 59, 0.3));
+  animation: instruction-land 260ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes instruction-land {
+  from { scale: 1.25; }
+  to { scale: 1; }
+}
+
+.instruction-tray {
+  display: flex;
+  gap: clamp(1rem, 4vw, 2rem);
+  justify-content: center;
+  min-block-size: clamp(90px, 20vw, 130px);
+}
+
+.instruction-item {
+  inline-size: clamp(90px, 20vw, 130px);
+  block-size: clamp(90px, 20vw, 130px);
+  background-color: transparent;
+  border: 0;
+  padding: 0;
+  touch-action: none;
+}
+
+.instruction-item.is-selected {
+  filter: drop-shadow(0 0 0 var(--accent-2)) drop-shadow(0 0 10px var(--accent-2));
 }

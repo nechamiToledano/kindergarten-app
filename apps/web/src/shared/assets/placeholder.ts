@@ -54,4 +54,9 @@ export function placeholderAudio(seed: string): string {
   return `tone:${encodeURIComponent(seed)}`;
 }
 
+/** `say:<text>` — a line the narrator speaks aloud (browser TTS) until a recording exists. */
+export const speechUrl = (text: string): string => `say:${encodeURIComponent(text)}`;
+export const isSpeechUrl = (url: string): boolean => url.startsWith('say:');
+export const speechText = (url: string): string => decodeURIComponent(url.slice('say:'.length));
+
 export const isToneUrl = (url: string): boolean => url.startsWith('tone:');

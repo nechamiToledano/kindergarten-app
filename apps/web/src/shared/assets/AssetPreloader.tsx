@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { AssetRef } from '@kga/contracts';
-import { isToneUrl } from './placeholder';
+import { isSpeechUrl, isToneUrl } from './placeholder';
 
 /**
  * §11.4 — before a subdomain begins, `plugin.assetsOf(config)` yields every image
@@ -12,7 +12,7 @@ type PreloadStatus = 'loading' | 'ready' | 'error';
 
 function preloadOne(asset: AssetRef): Promise<void> {
   if (asset.kind === 'audio') {
-    if (isToneUrl(asset.url)) return Promise.resolve();
+    if (isToneUrl(asset.url) || isSpeechUrl(asset.url)) return Promise.resolve();
     return new Promise((resolve, reject) => {
       const el = new Audio();
       el.preload = 'auto';

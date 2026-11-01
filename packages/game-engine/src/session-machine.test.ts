@@ -62,6 +62,13 @@ describe('sessionReducer', () => {
     expect(ratedOk.teacherNote).toBeNull();
   });
 
+  it('goes straight to rating when the teacher ran it with real materials', () => {
+    const s = sessionReducer(initialSessionState(true), { type: 'DONE_PHYSICALLY', at: '2026-01-01T09:00:00.000Z' });
+    expect(s.phase).toBe('RatingSuccess');
+    expect(s.attempts).toBe(1);
+    expect(s.rawAnswers[0].value).toEqual({ mode: 'physical' });
+  });
+
   it('routes through Demo before ChildInstruction when the subdomain has one', () => {
     const s = [{ type: 'START' as const }].reduce(sessionReducer, initialSessionState(true));
     expect(s.phase).toBe('Demo');

@@ -28,7 +28,7 @@ interface AudioUnlockValue {
    * been produced yet — real speech instead of an abstract tone, with zero
    * asset pipeline. Resolves immediately if the browser has no TTS voice.
    */
-  speak: (text: string) => Promise<void>;
+  speak: (text: string, rate?: number) => Promise<void>;
   /** Cuts off whatever instruction audio is playing right now (clip or speech). */
   stop: () => void;
 }
@@ -127,7 +127,7 @@ export function AudioUnlockProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const speak = useCallback(
-    (text: string) =>
+    (text: string, rate = 0.95) =>
       new Promise<void>((resolve) => {
         const synth = window.speechSynthesis;
         if (!synth) {
@@ -137,7 +137,7 @@ export function AudioUnlockProvider({ children }: { children: ReactNode }) {
         synth.cancel(); // a stray utterance from a fast teacher tap must not overlap
         const utterance = new SpeechSynthesisUtterance(text);
         utterance.lang = 'he-IL';
-        utterance.rate = 0.95;
+        utterance.rate = rate;
         const hebrewVoice = synth.getVoices().find((v) => v.lang.startsWith('he'));
         if (hebrewVoice) utterance.voice = hebrewVoice;
         utterance.onend = () => resolve();

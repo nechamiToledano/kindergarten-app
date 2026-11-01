@@ -61,6 +61,12 @@ enum GameType {
   PATTERN_SEQUENCE
   // Single-piece inset puzzle for age 3–4.
   INSET_PUZZLE
+  // Spoken instruction: drag item(s) onto a place in a scene, age 3–4.
+  INSTRUCTION_PLACE
+  // Knock-and-count echo game for age 3–4.
+  KNOCK_ECHO
+  // One picture, two speakers — pick the matching sound.
+  SOUND_PICK
 }
 
 model Network {

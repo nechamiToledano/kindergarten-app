@@ -151,6 +151,16 @@ async function main(): Promise<void> {
     }
   }
 
+  // Puzzles were once seeded as separate "digital" / physical siblings. They are
+  // now one subdomain each (the teacher can switch to a real puzzle in-session),
+  // so soft-delete any puzzle subdomain the catalogue no longer lists.
+  const catalogueIds = CONTENT.flatMap((a) => a.domains.flatMap((d) => d.subdomains.map((s) => s.id)));
+  const retired = await prisma.subdomain.updateMany({
+    where: { name: { startsWith: 'פאזל' }, id: { notIn: catalogueIds }, deletedAt: null },
+    data: { deletedAt: new Date() },
+  });
+  if (retired.count) console.log(`Retired ${retired.count} superseded puzzle subdomain(s).`);
+
   console.log(
     `Seed complete: ${domainIdBySlug.size} domains, ${subdomainCount} subdomains across ${CONTENT.length} age groups.\n` +
       'Login: teacher@demo.dev / editor@demo.dev  (password123)',

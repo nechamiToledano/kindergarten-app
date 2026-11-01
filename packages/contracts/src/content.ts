@@ -104,7 +104,8 @@ export type SubdomainForPlay = z.infer<typeof SubdomainForPlaySchema>;
 export const SubdomainQuerySchema = z.object({
   domainId: z.uuid().optional(),
   ageGroup: AgeGroupSchema.optional(),
-  level: SubdomainLevelSchema.optional(),
+  // Query-string values arrive as strings, so coerce before the 1|2|3 check.
+  level: z.coerce.number().pipe(SubdomainLevelSchema).optional(),
   gameType: GameTypeIdSchema.optional(),
   search: z.string().max(120).optional(),
 });

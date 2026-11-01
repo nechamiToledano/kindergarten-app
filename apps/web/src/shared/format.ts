@@ -72,6 +72,11 @@ export const GAME_TYPE_LABELS: Record<string, string> = {
   PUZZLE: 'פאזל',
   PATTERN_COPY: 'העתקת מתכונת',
   INSET_PUZZLE: 'פאזל חלק אחד',
+  INSTRUCTION_PLACE: 'הוראה שמיעתית',
+  KNOCK_ECHO: 'משחק הדפיקות',
+  SYLLABLE_COUNT: 'ספירת הברות',
+  PATTERN_SEQUENCE: 'המשך רצף',
+  SOUND_PICK: 'תמונה ושני רמקולים',
 };
 
 const HE_MONTHS = [

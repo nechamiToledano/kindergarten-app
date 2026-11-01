@@ -5,9 +5,12 @@ import {
   DragMatchConfigSchema,
   HotspotImageConfigSchema,
   InsetPuzzleConfigSchema,
+  InstructionPlaceConfigSchema,
+  KnockEchoConfigSchema,
   ManualObservationConfigSchema,
   MultiImageChoiceConfigSchema,
   PatternCopyConfigSchema,
+  SoundPickConfigSchema,
   PatternSequenceConfigSchema,
   PuzzleConfigSchema,
   SequentialTapConfigSchema,
@@ -267,8 +270,59 @@ export const insetPuzzlePlugin: GamePlugin<Infer<typeof InsetPuzzleConfigSchema>
   id: 'INSET_PUZZLE',
   configSchema: InsetPuzzleConfigSchema,
   score: (_config, answer) => ({ correct: answer === true }),
-  assetsOf: (config) => [audio(config.promptAudioUrl), image(config.imageUrl), image(config.silhouetteUrl)],
-  meta: { label: 'Inset puzzle', hints: { silhouetteUrl: 'Outline of the same object as imageUrl' } },
+  assetsOf: (config) => [
+    audio(config.promptAudioUrl),
+    image(config.imageUrl),
+    ...(config.boardUrl ? [image(config.boardUrl)] : []),
+  ],
+  meta: { label: 'Inset puzzle', hints: { imageUrl: 'Transparent PNG of the object; the socket outline is derived from it' } },
+};
+
+/** Instruction placement — correct when every step's item sits on an accepted target (and, if `ordered`, was placed in step order). */
+export const instructionPlacePlugin: GamePlugin<Infer<typeof InstructionPlaceConfigSchema>> = {
+  id: 'INSTRUCTION_PLACE',
+  configSchema: InstructionPlaceConfigSchema,
+  score: (config, answer) => {
+    if (!Array.isArray(answer) || answer.length !== config.steps.length) return { correct: false };
+    const placed = answer as { itemId?: unknown; targetId?: unknown }[];
+    const correct = config.steps.every((step, i) => {
+      const hit = config.ordered ? placed[i] : placed.find((p) => p?.itemId === step.itemId);
+      return hit?.itemId === step.itemId && step.targetIds.includes(String(hit.targetId));
+    });
+    return { correct };
+  },
+  assetsOf: (config) => [
+    audio(config.promptAudioUrl),
+    image(config.sceneImageUrl),
+    ...config.items.map((i) => image(i.imageUrl)),
+  ],
+  meta: { label: 'Instruction placement', hints: { steps: 'Each step: the item to place and the target ids that count as correct', ordered: 'Require placement in steps order' } },
+};
+
+/**
+ * Knock echo — the child may knock on the screen or on a real table/drum, which the app cannot
+ * hear, so never taps on the screen are not an error: like manual observation, every run lands
+ * on the teacher's rating.
+ */
+export const knockEchoPlugin: GamePlugin<Infer<typeof KnockEchoConfigSchema>> = {
+  id: 'KNOCK_ECHO',
+  configSchema: KnockEchoConfigSchema,
+  score: () => ({ correct: true }),
+  assetsOf: (config) => [audio(config.promptAudioUrl)],
+  meta: { label: 'Knock echo', hints: { knockCount: 'How many times the hand knocks (1–10)' } },
+};
+
+/** Sound pick — one picture, two speakers; correct when the child picks the speaker whose sound matches. */
+export const soundPickPlugin: GamePlugin<Infer<typeof SoundPickConfigSchema>> = {
+  id: 'SOUND_PICK',
+  configSchema: SoundPickConfigSchema,
+  score: (config, answer) => ({ correct: answer === config.correctOptionId }),
+  assetsOf: (config) => [
+    audio(config.promptAudioUrl),
+    image(config.imageUrl),
+    ...config.options.map((o) => audio(o.audioUrl)),
+  ],
+  meta: { label: 'Sound pick', hints: { correctOptionId: 'Must match one of the two option ids' } },
 };
 
 /** Physical / observation-only subdomains (Spec §18.1 q5) — no game, always "correct". */
@@ -292,6 +346,9 @@ export const GAME_PLUGINS: GamePlugin[] = [
   syllableCountPlugin as GamePlugin,
   patternSequencePlugin as GamePlugin,
   insetPuzzlePlugin as GamePlugin,
+  instructionPlacePlugin as GamePlugin,
+  knockEchoPlugin as GamePlugin,
+  soundPickPlugin as GamePlugin,
   manualObservationPlugin as GamePlugin,
 ];
 
