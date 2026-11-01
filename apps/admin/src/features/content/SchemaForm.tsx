@@ -98,6 +98,7 @@ function Field_({
   onChange,
   ctx,
   path,
+  forcedAssetKind,
 }: {
   /** The raw schema property name (or `#index` marker for array items). */
   fieldKey: string;
