@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { cn } from './primitives.js';
 
 /**
- * Theme: dark by default, light on request. Stored per device, because a
+ * Theme: light by default, dark on request. Stored per device, because a
  * tablet in a classroom is set once and left. The choice is applied to <html>
  * as `data-theme`, which theme.css and the play surface key off.
  *
@@ -15,9 +15,9 @@ const STORAGE_KEY = 'kga-theme';
 
 export function getTheme(): Theme {
   try {
-    return localStorage.getItem(STORAGE_KEY) === 'light' ? 'light' : 'dark';
+    return localStorage.getItem(STORAGE_KEY) === 'dark' ? 'dark' : 'light';
   } catch {
-    return 'dark';
+    return 'light';
   }
 }
 
