@@ -5,7 +5,10 @@ services:
     plan: free
     region: frankfurt
     buildCommand: pnpm install --frozen-lockfile --prod=false && pnpm --filter @kga/api prisma:generate && pnpm turbo run build --filter=@kga/api...
-    startCommand: pnpm --filter @kga/api prisma:deploy && pnpm --filter @kga/api start:prod
+    # Migrations need a session-level advisory lock, which Neon's pooler (pgbouncer)
+    # can't provide, so they run against the direct host (same URL minus "-pooler").
+    # The app itself keeps using the pooled DATABASE_URL.
+    startCommand: DATABASE_URL="$(echo "$DATABASE_URL" | sed 's/-pooler//')" pnpm --filter @kga/api prisma:deploy && pnpm --filter @kga/api start:prod
     envVars:
       - key: NODE_ENV
         value: production
